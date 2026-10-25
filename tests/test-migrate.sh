@@ -1,13 +1,14 @@
 #!/bin/bash
 # tests/test-migrate.sh — behavioral tests for scripts/migrate-sbm (removes an
 # old `sbm` install so the plugin replaces it). Plain bash, bash 3.2 safe.
-# Fixtures are REAL `sbm install --yes` runs with HOME and CLAUDE_HOME pointed
-# at a mktemp -d sandbox; the real ~/.claude and real vault are never touched.
+# Fixtures are materialized from tests/fixtures/sbm-install (a frozen capture of
+# a real `sbm install --yes`, see its README) into a mktemp -d sandbox; the
+# real ~/.claude and real vault are never touched.
 # Usage: bash tests/test-migrate.sh   (exit 0 = all pass)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SBM="$REPO_ROOT/sbm"
+MATERIALIZE="$SCRIPT_DIR/fixtures/sbm-install/materialize"
 MIGRATE="$REPO_ROOT/scripts/migrate-sbm"
 
 PASS_COUNT=0
@@ -20,7 +21,7 @@ trap 'chmod -R u+w "$TDIR" 2>/dev/null; rm -rf "$TDIR"' EXIT
 export HOME="$TDIR/home"
 mkdir -p "$HOME"
 
-# make_fx <name> — real sbm install in $TDIR/<name>; sets CH, V, MAN, BK.
+# make_fx <name> — frozen sbm install materialized in $TDIR/<name>; sets CH, V, MAN, BK.
 # Adds a user hook + keys to settings.json and user text around the
 # CLAUDE.md block.
 make_fx() {
@@ -28,8 +29,8 @@ make_fx() {
   CH="$TDIR/$n/claude-home"; V="$TDIR/$n/vault"; BK="$TDIR/$n/backup"
   MAN="$CH/.second-brain/manifest.json"
   mkdir -p "$TDIR/$n/home"
-  HOME="$TDIR/$n/home" CLAUDE_HOME="$CH" bash "$SBM" install --yes --vault "$V" </dev/null >"$TDIR/$n/install.log" 2>&1 \
-    || { echo "FAIL: sbm install ($n): $(tail -3 "$TDIR/$n/install.log")"; exit 1; }
+  bash "$MATERIALIZE" "$CH" "$V" >"$TDIR/$n/install.log" 2>&1 \
+    || { echo "FAIL: materialize ($n): $(tail -3 "$TDIR/$n/install.log")"; exit 1; }
   tmp="$CH/settings.json.tmp"
   jq '.model = "opus"
       | .permissions = {"allow": ["Bash(ls)"]}
