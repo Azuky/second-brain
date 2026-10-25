@@ -89,5 +89,16 @@ run_hook '{"session_id":"new1"}' >/dev/null
 [ ! -f "$SANDBOX/data/sessions/old1.start" ] && pass "old markers cleaned" || fail "old markers cleaned"
 [ -f "$SANDBOX/data/sessions/new1.start" ] && pass "new marker kept" || fail "new marker kept"
 
+# marker survives a repeated SessionStart (compact) with its mtime intact
+TWO_H="$(date -v-2H +%Y%m%d%H%M 2>/dev/null || date -d '2 hours ago' +%Y%m%d%H%M 2>/dev/null)"
+run_hook '{"session_id":"keep1"}' >/dev/null
+touch -t "$TWO_H" "$SANDBOX/data/sessions/keep1.start"
+run_hook '{"session_id":"keep1"}' >/dev/null
+if [ -f "$SANDBOX/data/sessions/keep1.start" ] && [ -z "$(find "$SANDBOX/data/sessions/keep1.start" -mmin -60 2>/dev/null)" ]; then
+  pass "marker mtime kept on re-run"
+else
+  fail "marker mtime kept on re-run"
+fi
+
 echo "Passed: $PASS_COUNT  Failed: $FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]
