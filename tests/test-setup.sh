@@ -119,6 +119,8 @@ run_setup --vault "$TDIR/v8" --bogus
 # 12. unwritable parent -> exit non-zero, error names path, no success word
 if [ "$(id -u)" = 0 ]; then
   echo "SKIP: unwritable-path test (running as root ignores permissions)"
+elif case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) true ;; *) false ;; esac; then
+  echo "SKIP: unwritable-path test (Git Bash: chmod a-w does not make an NTFS directory read-only)"
 else
   RO="$TDIR/readonly"; mkdir -p "$RO"; chmod a-w "$RO"
   run_setup --vault "$RO/vault" --claude-home "$CH"
