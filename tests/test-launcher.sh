@@ -39,7 +39,13 @@ PROBE_EXIT=3 bash "$SANDBOX/h/run-hook.cmd" probe </dev/null >/dev/null 2>&1
 check "exit code propagates" "3" "$?"
 
 # --- executable bit
-[ -x "$LAUNCHER" ] && pass "launcher is executable" || fail "launcher is executable"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "SKIP: launcher executable bit (Git Bash derives -x from extension/shebang; run-hook.cmd starts with ':'; the git index mode is checked below)"
+    [ "$(git -C "$(dirname "$LAUNCHER")" ls-files -s -- "$(basename "$LAUNCHER")" | cut -c1-6)" = "100755" ] \
+      && pass "launcher is 100755 in the git index" || fail "launcher mode in git index" ;;
+  *) [ -x "$LAUNCHER" ] && pass "launcher is executable" || fail "launcher is executable" ;;
+esac
 
 # --- hooks.json
 if [ -f "$HOOKS_JSON" ]; then

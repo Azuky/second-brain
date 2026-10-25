@@ -57,7 +57,7 @@ while IFS= read -r p; do
   n=$((n + 1))
   printf '%s\n' "$OUT" | grep -Fxq -- "  $p" || { missing=1; echo "  not in plan: $p"; }
 done <<EOF2
-$(jq -r 'keys[] | select(endswith("#block") | not) | select(startswith("'"$V"'/method/") | not)' "$MAN")
+$(jq -r 'keys[] | select(endswith("#block") | not) | select(startswith("'"$V"'/method/") | not)' "$MAN" | tr -d '\r')
 EOF2
 [ "$missing" = 0 ] && [ "$n" -gt 5 ] && pass "plan lists all $n manifest files under REMOVE" || fail "plan REMOVE incomplete (n=$n)"
 printf '%s\n' "$OUT" | grep -q '#block' && fail "#block listed in plan" || pass "#block key not listed"
@@ -87,7 +87,7 @@ run_mig --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK"
 
 # 3. full --apply
 make_fx t3
-removed="$(jq -r 'keys[] | select(endswith("#block") | not) | select(startswith("'"$V"'/method/") | not)' "$MAN")"
+removed="$(jq -r 'keys[] | select(endswith("#block") | not) | select(startswith("'"$V"'/method/") | not)' "$MAN" | tr -d '\r')"
 cp "$CH/settings.json" "$TDIR/t3/settings.before"
 cp "$CH/CLAUDE.md" "$TDIR/t3/claude.before"
 run_mig --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK"
@@ -155,17 +155,37 @@ run_mig --claude-home "$CH" --vault "$TDIR/t5/other" --apply --backup-dir "$BK"
 # 6. no jq -> exit 6 with manual list
 make_fx t6
 BIN="$TDIR/t6/bin"; mkdir -p "$BIN"
-for tool in bash sh grep sed awk cat dirname basename mkdir ls date shasum sha256sum sort tr head tail cut mktemp rm cp mv cmp wc perl env printf find xargs; do
-  src="$(command -v "$tool" 2>/dev/null)"
-  [ -n "$src" ] && [ -x "$src" ] && ln -s "$src" "$BIN/$tool"
-done
-[ -e "$BIN/jq" ] && rm -f "$BIN/jq"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    # Git Bash: symlinked/copied .exe tools lose msys-2.0.dll next to the real
+    # binary and cannot run from $BIN. Hide jq by dropping its directory from
+    # PATH instead (valid as long as that directory holds no other tool we need).
+    JQDIR="$(dirname "$(command -v jq)")"
+    NOJQ_PATH=""
+    OLDIFS="$IFS"; IFS=:
+    for d in $PATH; do [ "$d" = "$JQDIR" ] || NOJQ_PATH="${NOJQ_PATH:+$NOJQ_PATH:}$d"; done
+    IFS="$OLDIFS"
+    if [ "$JQDIR" = "$(dirname "$(command -v grep)")" ]; then NOJQ_PATH=""; fi
+    ;;
+  *)
+    for tool in bash sh grep sed awk cat dirname basename mkdir ls date shasum sha256sum sort tr head tail cut mktemp rm cp mv cmp wc perl env printf find xargs; do
+      src="$(command -v "$tool" 2>/dev/null)"
+      [ -n "$src" ] && [ -x "$src" ] && ln -s "$src" "$BIN/$tool"
+    done
+    [ -e "$BIN/jq" ] && rm -f "$BIN/jq"
+    NOJQ_PATH="$BIN"
+    ;;
+esac
+if [ -z "$NOJQ_PATH" ]; then
+  echo "SKIP: no-jq case (Git Bash: jq lives in the same directory as the other tools, cannot hide it)"
+else
 before="$(tree_sum "$TDIR/t6")"
-OUT="$(PATH="$BIN" /bin/bash "$MIGRATE" --claude-home "$CH" --vault "$V" --plan 2>&1)"; RC=$?
+OUT="$(PATH="$NOJQ_PATH" /bin/bash "$MIGRATE" --claude-home "$CH" --vault "$V" --plan 2>&1)"; RC=$?
 [ "$RC" = 6 ] && pass "no jq -> exit 6" || fail "no jq rc=$RC out=$OUT"
 printf '%s\n' "$OUT" | grep -Fq "$CH/commands/close.md" && ! printf '%s\n' "$OUT" | grep -q '#block' \
   && pass "manual list derived from manifest keys" || fail "manual list: $OUT"
 [ "$before" = "$(tree_sum "$TDIR/t6")" ] && pass "no-jq path writes nothing" || fail "no-jq modified tree"
+fi
 
 # 8. existing method.sbm-old -> timestamped name
 make_fx t8
@@ -190,6 +210,25 @@ for bad in "" "relative/dir" "\${CLAUDE_PLUGIN_DATA}/migration-backup/x"; do
   [ "$RC" = 2 ] && pass "bad --backup-dir '$bad' -> exit 2" || fail "bad backup '$bad' rc=$RC"
 done
 [ "$before" = "$(tree_sum "$TDIR/t9")" ] && pass "bad --backup-dir writes nothing" || fail "bad backup wrote files"
+
+# 10. jq that writes CRLF (native Windows jq.exe through a pipe) -> still migrates
+make_fx t10
+REALJQ="$(command -v jq)"
+CRBIN="$TDIR/t10/crbin"; mkdir -p "$CRBIN"
+cat > "$CRBIN/jq" <<JEOF
+#!/bin/bash
+out="\$("$REALJQ" "\$@")"; rc=\$?
+[ -n "\$out" ] && printf '%s\r\n' "\$out" | sed 's/\\r\\r\$/\\r/'
+exit \$rc
+JEOF
+chmod +x "$CRBIN/jq"
+OUT="$(PATH="$CRBIN:$PATH" bash "$MIGRATE" --claude-home "$CH" --vault "$V" --plan 2>&1)"; RC=$?
+printf '%s\n' "$OUT" | grep -Fxq "  $CH/commands/close.md" && printf '%s\n' "$OUT" | grep -Fxq 'SETTINGS: remove 6 hook entries' \
+  && printf '%s\n' "$OUT" | grep -Fxq 'CLAUDE.md: remove managed block' \
+  && pass "CRLF jq: plan lists files, settings and block" || fail "CRLF jq plan: $OUT"
+OUT="$(PATH="$CRBIN:$PATH" bash "$MIGRATE" --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK" 2>&1)"; RC=$?
+[ "$RC" = 0 ] && [ ! -e "$CH/commands/close.md" ] && [ ! -e "$CH/hooks/metrics-event.sh" ] && ! grep -q 'SECOND BRAIN METHOD' "$CH/CLAUDE.md" \
+  && ! grep -q "$(printf '\r')" "$CH/settings.json" && pass "CRLF jq: apply removes files and block, settings keep LF" || fail "CRLF jq apply rc=$RC out=$OUT"
 
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"

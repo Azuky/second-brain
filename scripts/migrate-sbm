@@ -139,9 +139,18 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 6
 fi
 
+# jq_r <jq -r args...> — jq -r with CRs removed. A native Windows jq.exe writes
+# CRLF through pipes, which would leave a trailing \r on every manifest path and
+# sha (nothing would match). Raw CR never occurs in JSON-escaped strings.
+jq_r() {
+  local out
+  out="$(jq -r "$@")" || return $?
+  printf '%s\n' "$out" | tr -d '\r'
+}
+
 # --- vault must be the one sbm used ---------------------------------------
 if [ -f "$CONFIG" ]; then
-  CFG_VAULT="$(jq -r '.vault // empty' "$CONFIG" 2>/dev/null)"
+  CFG_VAULT="$(jq_r '.vault // empty' "$CONFIG" 2>/dev/null)"
   if [ -n "$CFG_VAULT" ]; then
     CFG_VAULT_N="$(absolute_path "$CFG_VAULT")"
     if [ "$CFG_VAULT_N" != "$VAULT" ]; then
@@ -187,7 +196,7 @@ if [ -f "$MANIFEST" ]; then
       add_line KEEP_EDITED "$rec_path"
     fi
   done <<EOM
-$(jq -r 'to_entries[] | "\(.value)\t\(.key)"' "$MANIFEST")
+$(jq_r 'to_entries[] | "\(.value)\t\(.key)"' "$MANIFEST")
 EOM
 fi
 [ -n "$CLAUDE_MD" ] || CLAUDE_MD="$CH/CLAUDE.md"
@@ -196,7 +205,7 @@ fi
 SETTINGS="$CH/settings.json"
 JQ_KEEP='(([(.hooks? // [])[]?.command] | join(" ")) | test($re) | not)'
 if [ -f "$SETTINGS" ]; then
-  SETTINGS_N="$(jq -r --arg re "$HOOK_RE" '
+  SETTINGS_N="$(jq_r --arg re "$HOOK_RE" '
     [ (.hooks // {}) | to_entries[] | .value | arrays | .[] | select('"$JQ_KEEP"' | not) ] | length
   ' "$SETTINGS" 2>/dev/null)" || SETTINGS_BAD=1
   [ -n "$SETTINGS_N" ] || { SETTINGS_N=0; SETTINGS_BAD=1; }
@@ -310,7 +319,7 @@ if [ "$SETTINGS_BAD" = 0 ] && [ "$SETTINGS_N" -gt 0 ]; then
           | from_entries )
         | if (.hooks | length) == 0 then del(.hooks) else . end
       else . end' "$SETTINGS" > "$tmp"; then
-    cat "$tmp" > "$SETTINGS" || { rm -f "$tmp"; fail_write "$SETTINGS"; }
+    tr -d '\r' < "$tmp" > "$SETTINGS" || { rm -f "$tmp"; fail_write "$SETTINGS"; }
     rm -f "$tmp"
   else
     rm -f "$tmp"
