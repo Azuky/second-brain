@@ -49,4 +49,3 @@ only when editing. Queries (never load the graph into context):
 
 Limit: symbol level (functions/classes/imports); module constants → grep.
 -->
-
