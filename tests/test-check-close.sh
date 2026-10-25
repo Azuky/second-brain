@@ -54,6 +54,7 @@ check "stop stale: exit 0" "0" "$RC"
 has "stop stale: block" '"decision":"block"' "$OUT"
 has "stop stale: message with ~ path" "(~/vault/projects/p/CONTEXT.md)" "$OUT"
 has "stop stale: close rule text" "Method close rule:" "$OUT"
+has "stop stale: plugin command name" "/second-brain:close routine now:" "$OUT"
 if command -v jq >/dev/null 2>&1; then
   check "stop stale: jq parses" "block" "$(printf '%s' "$OUT" | jq -r .decision 2>/dev/null)"
 fi
@@ -75,6 +76,8 @@ check "precompact stale: exit 0" "0" "$RC"
 has "precompact: systemMessage" '"systemMessage":' "$OUT"
 has "precompact: hookEventName" '"hookEventName":"PreCompact"' "$OUT"
 has "precompact: path" "~/vault/projects/p/CONTEXT.md" "$OUT"
+has "precompact: plugin command in message" "run /second-brain:close to persist" "$OUT"
+has "precompact: plugin command in context" "per /second-brain:close:" "$OUT"
 if command -v jq >/dev/null 2>&1; then
   check "precompact: jq parses" "PreCompact" "$(printf '%s' "$OUT" | jq -r .hookSpecificOutput.hookEventName 2>/dev/null)"
 fi

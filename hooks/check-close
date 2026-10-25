@@ -47,12 +47,12 @@ esac
 
 if [ "$EVENT" = "stop" ]; then
   # shellcheck disable=SC2059
-  R="$(printf "Method close rule: the vault's CONTEXT.md (%s) was not updated in this session. If there was project work, run the /close routine now (~/.claude/commands/close.md): verification, CONTEXT.md, brain, commit message. If the session was read-only and there is nothing to close, say so explicitly and stop." "$REL")"
+  R="$(printf "Method close rule: the vault's CONTEXT.md (%s) was not updated in this session. If there was project work, run the /second-brain:close routine now: verification, CONTEXT.md, brain, commit message. If the session was read-only and there is nothing to close, say so explicitly and stop." "$REL")"
   emit_json "{\"decision\":\"block\",\"reason\":\"$(json_escape "$R")\"}
 "
 else
-  M="$(printf '⚠️ Compacting with CONTEXT.md not updated (%s) — run /close to persist the state before detail is lost.' "$REL")"
-  C="$(printf 'The conversation is about to be compacted and the vault'"'"'s CONTEXT.md (%s) was not updated in this session. Before continuing, persist the state per /close: tasks, decisions, exact starting point for the next session.' "$REL")"
+  M="$(printf '⚠️ Compacting with CONTEXT.md not updated (%s) — run /second-brain:close to persist the state before detail is lost.' "$REL")"
+  C="$(printf 'The conversation is about to be compacted and the vault'"'"'s CONTEXT.md (%s) was not updated in this session. Before continuing, persist the state per /second-brain:close: tasks, decisions, exact starting point for the next session.' "$REL")"
   emit_json "{\"systemMessage\":\"$(json_escape "$M")\",\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"$(json_escape "$C")\"}}
 "
 fi
