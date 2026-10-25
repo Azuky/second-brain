@@ -24,6 +24,10 @@ Act on the exit code:
   yet. Tell the user an old install was detected, that migrating it arrives
   in a later release, and stop. Do not re-run the script.
 - **2**: usage error. Show the message and stop.
+- **1**: the script could not write the vault folder or a file in it (the
+  message names the path). Nothing is reported as done. Tell the user in plain
+  words which path failed and suggest checking its permissions or changing
+  "Vault folder" in `/config`, then stop.
 
 If a later migration reports that the vault differs from the configured one,
 tell the user to change "Vault folder" in `/config` and run

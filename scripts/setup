@@ -5,6 +5,8 @@
 #       2 usage error
 #       3 foreign non-empty folder, nothing written
 #       4 old sbm install found (prints "migrate"), nothing written
+#       1 a directory or file could not be written (error names the path on
+#         stderr, no success word printed; may leave a partial scaffold)
 # Bash 3.2 safe; no jq/perl/python/node. Only reads --claude-home, never writes it.
 
 BEGIN_MARK='<!-- BEGIN SECOND BRAIN METHOD -->'
@@ -93,9 +95,16 @@ absolute_path() {
 WROTE=0
 
 # ensure_dir <dir> — mkdir -p only when missing; records a write.
+write_fail() {
+  echo "error: could not write $1" >&2
+  exit 1
+}
+
 ensure_dir() {
   [ -d "$1" ] && return 0
-  mkdir -p "$1" && WROTE=1
+  mkdir -p "$1" || write_fail "$1"
+  [ -d "$1" ] || write_fail "$1"
+  WROTE=1
 }
 
 # scaffold_vault <vault> <skeleton-home> — additive: only creates MISSING entries.
@@ -107,12 +116,13 @@ scaffold_vault() {
   done
 
   if [ ! -e "$vault/.gitignore" ]; then
-    cat > "$vault/.gitignore" <<'GI'
+    { cat <<'GI'
 .DS_Store
 .trash/
 .obsidian/workspace*
 .obsidian/cache
 GI
+    } > "$vault/.gitignore" || write_fail "$vault/.gitignore"
     WROTE=1
   fi
 
@@ -126,7 +136,7 @@ tags: [meta]
 ---
 FM
       cat "$home_src"
-    } > "$vault/00-index/home.md"
+    } > "$vault/00-index/home.md" || write_fail "$vault/00-index/home.md"
     WROTE=1
   fi
 
