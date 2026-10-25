@@ -77,7 +77,10 @@ FEOF
 chmod +x "$FAKEBIN/cygpath"
 check "normalize windows via fake cygpath" "/c/Users/Ana/My Brain" "$(PATH="$FAKEBIN:$PATH" normalize_path 'C:\Users\Ana\My Brain\')"
 check "normalize windows fwd slash" "/d/x" "$(PATH="$FAKEBIN:$PATH" normalize_path 'D:/x')"
-check "normalize windows w/o cygpath unchanged" 'C:\x' "$(PATH="/usr/bin:/bin" normalize_path 'C:\x')"
+# normalize_path only uses builtins, so an empty PATH guarantees cygpath is
+# absent on every platform (on Git Bash /usr/bin:/bin would still expose the
+# real cygpath and convert the path).
+check "normalize windows w/o cygpath unchanged" 'C:\x' "$(PATH="$FAKEBIN/nonexistent" normalize_path 'C:\x')"
 
 # --- hook_cwd
 check "hook_cwd from json" "/some/dir" "$(hook_cwd '{"cwd":"/some/dir"}')"
