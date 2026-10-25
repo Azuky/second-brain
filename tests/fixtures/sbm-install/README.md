@@ -9,7 +9,7 @@ removed from the repo. Source commit of the installer: `8f69f4f`
 
 - `claude-home/` — the captured claude-home: `commands/`, `agents/`, `hooks/`,
   `settings.json`, `CLAUDE.md`, `.second-brain/config.json`, `.second-brain/manifest.json`.
-- `vault/method/` — the captured vault `method/` directory.
+- `vault/` — the captured vault files: `method/`, `.gitignore`, `00-index/home.md`.
 - `materialize <claude-home> <vault>` — recreates the tree at the given paths.
 
 Sandbox paths were replaced by `@@CLAUDE_HOME@@` and `@@VAULT@@` (file contents
@@ -41,4 +41,4 @@ done
 
 Verification used when it was created: re-run `sbm install` into a fresh sandbox,
 `materialize` into the same paths, `diff -r` both trees: identical except
-`.second-brain/config.json` (`repo`, `installed_at`).
+`.second-brain/config.json` (`repo` is a fixed placeholder and `installed_at` is the capture time). The vault, including `.gitignore`, `00-index/home.md` and the `git init`-ed `.git`, compared identical (`diff -rq`). Also captured: `vault/.gitignore` and `vault/00-index/home.md`; `materialize` runs `git init -q` in the vault when git is available.

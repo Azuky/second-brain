@@ -41,6 +41,8 @@ copy_tree "$HERE/claude-home" "$CH"
 copy_tree "$HERE/vault" "$V"
 # empty vault directories sbm creates (git cannot store them in the fixture)
 for d in 00-index briefs learning/til learning/concept patterns projects; do mkdir -p "$V/$d"; done
+# sbm also `git init`s the vault (a nested .git cannot be stored in the fixture)
+if command -v git >/dev/null 2>&1 && [ ! -d "$V/.git" ]; then git -C "$V" init -q >/dev/null 2>&1 || true; fi
 
 # manifest: substitute keys; recompute sha only where substitution changed content
 SRC_MAN="$HERE/claude-home/.second-brain/manifest.json"

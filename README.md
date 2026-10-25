@@ -84,7 +84,7 @@ possible future Spanish edition. It is not shipped.
 ## Credits
 
 - Based on the second-brain method by
-  [csaavedras](https://github.com/csaavedras), the upstream project this
+  [csaavedras](https://github.com/csaavedras/second-brain-method), the upstream project this
   plugin grew out of.
 - The cross-platform hook launcher (`hooks/run-hook.cmd`) is adapted from
   [superpowers](https://github.com/obra/superpowers) by Jesse Vincent (MIT).
