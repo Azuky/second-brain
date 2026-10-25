@@ -1,0 +1,51 @@
+#!/bin/bash
+# hooks/session-start — SessionStart hook: injects the method rules plus a
+# Paths block as additionalContext, and touches a per-session marker.
+# Fails open: no `set -e`; every optional step is allowed to fail silently.
+
+_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+# shellcheck source=common.bash
+. "$_dir/common.bash" 2>/dev/null || exit 0
+
+ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+[ -n "$ROOT" ] || ROOT="$_dir/.."
+
+INPUT="$(cat 2>/dev/null)"
+
+RULES="$(cat "$ROOT/method/rules.md" 2>/dev/null)"
+
+VAULT="$(normalize_path "${CLAUDE_PLUGIN_OPTION_VAULT:-}")"
+CH="${CLAUDE_HOME:-$HOME/.claude}"
+
+CTX="$RULES
+
+## Paths
+- Vault: $VAULT
+- Method docs: $ROOT/method"
+
+if [ -z "$VAULT" ] || [ ! -d "$VAULT/projects" ]; then
+  CTX="$CTX
+Second brain not set up — run /second-brain:setup."
+fi
+if [ -f "$CH/.second-brain/config" ]; then
+  CTX="$CTX
+Old sbm install detected — run /second-brain:setup to migrate (rules and hooks may load twice until then)."
+fi
+
+# Session marker (used by check-close). Optional: never blocks the output.
+if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+  _sid="$(json_get_string "$INPUT" session_id 2>/dev/null)"
+  case "$_sid" in
+    ""|*/*|*\\*|*..*) ;;
+    *)
+      mkdir -p "$CLAUDE_PLUGIN_DATA/sessions" 2>/dev/null &&
+        : > "$CLAUDE_PLUGIN_DATA/sessions/$_sid.start" 2>/dev/null
+      find "$CLAUDE_PLUGIN_DATA/sessions" -name '*.start' -mtime +7 -delete 2>/dev/null
+      ;;
+  esac
+fi
+
+ESC="$(json_escape "$CTX")"
+emit_json "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$ESC\"}}
+"
+exit 0
