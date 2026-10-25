@@ -86,6 +86,13 @@ fi
 OUT="$(run_hook precompact "{\"session_id\":\"s1\",\"cwd\":\"$REPO\",\"stop_hook_active\":true}")"
 has "precompact ignores stop_hook_active" "PreCompact" "$OUT"
 
+# Compaction: session-start re-runs with same session_id; marker must stay old
+: > "$MARK"; touch -t "$OLDER" "$MARK"; touch -t "$OLD" "$MARK"; touch "$CTXF"
+printf '%s' "$IN" | env -i PATH="$PATH" HOME="$HOME_D" CLAUDE_PLUGIN_DATA="$DATA" \
+  CLAUDE_PLUGIN_ROOT="$REPO_ROOT" bash "$REPO_ROOT/hooks/session-start" >/dev/null
+OUT="$(run_hook stop "$IN")"
+check "after session-start re-run: CONTEXT updated earlier, no output" "" "$OUT"
+
 # No marker: fallback 30 min
 rm -f "$MARK"
 touch "$CTXF"

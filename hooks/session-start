@@ -38,8 +38,11 @@ if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
   case "$_sid" in
     ""|*/*|*\\*|*..*) ;;
     *)
+      # Create only if absent: after /compact the same session_id fires again
+      # and must not reset the marker's mtime.
+      _m="$CLAUDE_PLUGIN_DATA/sessions/$_sid.start"
       mkdir -p "$CLAUDE_PLUGIN_DATA/sessions" 2>/dev/null &&
-        : > "$CLAUDE_PLUGIN_DATA/sessions/$_sid.start" 2>/dev/null
+        { [ -e "$_m" ] || : > "$_m" 2>/dev/null; }
       find "$CLAUDE_PLUGIN_DATA/sessions" -name '*.start' -mtime +7 -delete 2>/dev/null
       ;;
   esac
