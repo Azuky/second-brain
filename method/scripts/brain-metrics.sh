@@ -126,23 +126,28 @@ def round1:
   end
 '
 
+# jq message arguments (shared by the overall and per-project reports)
+MSG_ARGS=(
+  --arg no_tasks '   (no tasks recorded yet)'
+  --arg tasks_line '   Tasks: %s'
+  --arg by_type_hdr 'By type:'
+  --arg by_type_item '     - %s: %s task(s), avg total %smin, avg tokens %s'
+  --arg est_hdr 'Estimate vs actual:'
+  --arg no_est '     (no estimates recorded)'
+  --arg est_item '     - %s: %s → %smin'
+  --arg tokens_hdr 'Parent vs subagents tokens:'
+  --arg tokens_parent '     - parent: %s (%s%%)'
+  --arg tokens_subagents '     - subagents: %s (%s%%)'
+  --arg month_hdr 'Month over month:'
+  --arg month_item '     - %s: %s task(s), %s tokens'
+  --arg na 'n/a'
+)
+
 # ── Overall report ───────────────────────────────────────────────────────────
 echo
 printf '── Overall ──────────────────────────────────────────\n'
 jq -s -r "$JQ_FILTER" \
-  --arg no_tasks '   (no tasks recorded yet)' \
-  --arg tasks_line '   Tasks: %s' \
-  --arg by_type_hdr 'By type:' \
-  --arg by_type_item '     - %s: %s task(s), avg total %smin, avg tokens %s' \
-  --arg est_hdr 'Estimate vs actual:' \
-  --arg no_est '     (no estimates recorded)' \
-  --arg est_item '     - %s: %s → %smin' \
-  --arg tokens_hdr 'Parent vs subagents tokens:' \
-  --arg tokens_parent '     - parent: %s (%s%%)' \
-  --arg tokens_subagents '     - subagents: %s (%s%%)' \
-  --arg month_hdr 'Month over month:' \
-  --arg month_item '     - %s: %s task(s), %s tokens' \
-  --arg na 'n/a' \
+  "${MSG_ARGS[@]}" \
   "$TMP/all.jsonl"
 
 # ── Per-project report ───────────────────────────────────────────────────────
@@ -151,19 +156,7 @@ while IFS= read -r proj; do
   echo
   printf '── Project: %s ───────────────────────────────────\n' "$proj"
   jq -s -r "$JQ_FILTER" \
-    --arg no_tasks '   (no tasks recorded yet)' \
-    --arg tasks_line '   Tasks: %s' \
-    --arg by_type_hdr 'By type:' \
-    --arg by_type_item '     - %s: %s task(s), avg total %smin, avg tokens %s' \
-    --arg est_hdr 'Estimate vs actual:' \
-    --arg no_est '     (no estimates recorded)' \
-    --arg est_item '     - %s: %s → %smin' \
-    --arg tokens_hdr 'Parent vs subagents tokens:' \
-    --arg tokens_parent '     - parent: %s (%s%%)' \
-    --arg tokens_subagents '     - subagents: %s (%s%%)' \
-    --arg month_hdr 'Month over month:' \
-    --arg month_item '     - %s: %s task(s), %s tokens' \
-    --arg na 'n/a' \
+    "${MSG_ARGS[@]}" \
     "$TMP/proj-$proj.jsonl"
 done < "$TMP/projects"
 
