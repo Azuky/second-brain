@@ -48,8 +48,9 @@ subagent brief; the parent invokes them directly during `/second-brain:gate`.
    `brain-health.sh`.
 3. **One trigger line per skill.** If you can't state in one line *when* it
    applies, you don't know the skill well enough to route work to it.
-4. **The registry lives in the vault** (`<vault>/method/SKILLS-REGISTRY.md`)
-   — it's personal curation, like the rest of the brain.
+4. **The registry ships with the plugin** (`method/SKILLS-REGISTRY.md`) — it's
+   personal curation: it is versioned with the plugin and you edit it by
+   committing changes to your fork. There is no vault copy.
 
 ## How it's exercised
 
