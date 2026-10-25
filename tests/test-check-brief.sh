@@ -110,6 +110,23 @@ check "garbage in method repo: no output" "" "$OUT"
 OUT="$(printf '' | env -i PATH="$PATH" HOME="$SANDBOX/home" bash "$HOOK")"; RC=$?
 check "empty stdin: exit 0" "0" "$RC"
 
+# large transcript (thousands of lines) is judged quickly, on the last text line
+BIG="$SANDBOX/big.jsonl"
+{
+  sed -n 1p "$FX/brief-ok.jsonl"
+  _i=0
+  while [ "$_i" -lt 2250 ]; do
+    sed -n 2,3p "$FX/brief-ok.jsonl"
+    _i=$((_i + 1))
+  done
+  sed -n 5p "$FX/brief-ok.jsonl"
+} > "$BIG"
+T0="$(date +%s)"
+OUT="$(run_hook "$(in_for "$BIG")")"
+T1="$(date +%s)"
+check "large transcript: ok, no output" "" "$OUT"
+[ $((T1 - T0)) -le 2 ] && pass "large transcript: under 2s" || fail "large transcript: took $((T1 - T0))s"
+
 # same results under /bin/bash (3.2 on macOS)
 if [ -x /bin/bash ]; then
   OUT="$(in_for "$FX/brief-missing-evidence.jsonl" | env -i PATH="$PATH" HOME="$SANDBOX/home" /bin/bash "$HOOK")"
