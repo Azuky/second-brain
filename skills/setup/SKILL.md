@@ -30,7 +30,10 @@ Act on the exit code:
        stop: nothing changed. On yes, compute `ts=$(date -u +%Y%m%dT%H%M%SZ)`
        and run the same command with
        `--apply --backup-dir "${CLAUDE_PLUGIN_DATA}/migration-backup/$ts"`
-       instead of `--plan`. If that exits 0, re-run the setup command above,
+       instead of `--plan`. If `${CLAUDE_PLUGIN_DATA}` came through empty or
+       still literally unexpanded, use
+       `--backup-dir "$HOME/.second-brain-migration-backup/$ts"` instead
+       (never a folder inside the vault or inside `~/.claude`). If that exits 0, re-run the setup command above,
        report the result in plain words and tell the user to restart Claude
        Code so the old hooks stop loading.
      - **5**: the old install used a different vault than "Vault folder". Show

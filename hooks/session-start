@@ -27,7 +27,7 @@ if [ -z "$VAULT" ] || [ ! -d "$VAULT/projects" ]; then
   CTX="$CTX
 Second brain not set up — run /second-brain:setup."
 fi
-if [ -f "$CH/.second-brain/config" ]; then
+if [ -f "$CH/.second-brain/config.json" ] || [ -f "$CH/.second-brain/config" ]; then
   CTX="$CTX
 Old sbm install detected — run /second-brain:setup to migrate (rules and hooks may load twice until then)."
 fi

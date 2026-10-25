@@ -65,9 +65,12 @@ has "empty vault: setup hint" "run /second-brain:setup" "$OUT"
 OUT="$(run_hook '{}' CLAUDE_PLUGIN_OPTION_VAULT="$SANDBOX/nope")"
 has "vault without projects/: setup hint" "run /second-brain:setup" "$OUT"
 
-mkdir -p "$SANDBOX/ch/.second-brain"; : > "$SANDBOX/ch/.second-brain/config"
+mkdir -p "$SANDBOX/ch/.second-brain"; : > "$SANDBOX/ch/.second-brain/config.json"
 OUT="$(run_hook '{}' CLAUDE_HOME="$SANDBOX/ch")"
-has "old sbm config: warning" "Old sbm install detected" "$OUT"
+has "old sbm config.json: warning" "Old sbm install detected" "$OUT"
+rm -f "$SANDBOX/ch/.second-brain/config.json"; : > "$SANDBOX/ch/.second-brain/config"
+OUT="$(run_hook '{}' CLAUDE_HOME="$SANDBOX/ch")"
+has "legacy sbm config: warning" "Old sbm install detected" "$OUT"
 
 rm -rf "$SANDBOX/data"; mkdir -p "$SANDBOX/data"
 OUT="$(run_hook 'not json {{{')"; RC=$?
