@@ -91,7 +91,8 @@ if command -v claude >/dev/null 2>&1; then
     mkdir -p "$EXP/$(dirname "$p")"; cp -p "$p" "$EXP/$p"
   done
   out="$(cd "$EXP" && claude plugin validate --strict . 2>&1)"; rc=$?
-  # ICON_MISSING tolerated until the icon asset is decided (see T11).
+  # ICON_MISSING is tolerated on purpose: the user decided (2026-10-25) to ship
+  # the plugin without an icon for now. This is not a temporary gap.
   rest="$(printf '%s\n' "$out" | grep -iE 'warn|error|✘|✗|fail' | grep -v 'ICON_MISSING' | grep -viE 'Validating|passed with|0 error')"
   if [ "$rc" = 0 ] || { printf '%s' "$out" | grep -q 'ICON_MISSING' && [ -z "$rest" ]; }; then
     pass "claude plugin validate --strict (ICON_MISSING tolerated)"

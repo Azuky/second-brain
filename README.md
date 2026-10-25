@@ -1,263 +1,94 @@
-# 🧠 Second Brain for Claude Code
+# Second Brain for Claude Code
 
-**English** · [Español](README.es.md)
+> A Claude Code plugin that gives [Claude Code](https://claude.com/claude-code)
+> persistent memory. Install it once and every session **resumes where you left
+> off**, without re-explaining anything.
 
-> A working method that gives [Claude Code](https://claude.com/claude-code)
-> persistent memory. Install once and every session **resumes where you left
-> off**, without re-explaining anything. macOS.
+Claude Code remembers nothing between sessions. This plugin keeps a "second
+brain" on your disk, a **vault** (a plain folder you can also open in
+[Obsidian](https://obsidian.md)), where the state of each project and
+everything you learn is written down.
 
----
+## What you get
 
-## What it is
-
-Claude Code remembers nothing between sessions: every time you open the
-terminal, it starts blank. This method gives it a **memory** — a "second
-brain" on your disk where the state of each project and everything you learn
-is written down.
-
-In practice, three things get installed together:
-
-- A set of **commands** (`/start`, `/close`, `/learn`, …) that load and save
-  your context with discipline.
-- A **vault** (a folder) where all that knowledge lives, which you can open
-  and browse in [Obsidian](https://obsidian.md).
-- A set of **safety rules** so Claude never touches git, deletes files or
-  exposes secrets without your permission.
-
----
-
-## ✨ Why use it — the benefits
-
-| Without the method | With the method |
-|---|---|
-| Every session starts from zero: you re-explain the project and Claude re-explores the repo, burning time and tokens | `/start` resumes in 30 seconds with the exact state and the next step |
-| What you decided yesterday evaporates when you close the terminal | `/close` writes down what was done, what's left and **why** each thing was decided |
-| What you study gets lost or scattered across loose notes | `/learn` accumulates your learning into a graph of connected notes that grows over time |
-| Claude can make risky changes (git, deletes, branches) on its own | No git or deletes without your explicit approval; secrets are never read or stored |
-| You waste tokens loading excess context on every message | Only the minimum needed is loaded and the rest is fetched on demand → **cheaper and faster** |
-
-**In one sentence:** you work with an assistant that has memory, judgment and
-brakes — and that tomorrow knows exactly where you left it.
-
-The acid test: tomorrow you type `/start` and keep working **without
-explaining anything**.
-
----
-
-## Requirements
-
-- **macOS** (this installer is Mac only).
-- **[Claude Code](https://claude.com/claude-code)** installed (the `claude` CLI).
-- **git**.
-- **jq** — `brew install jq`.
-- **perl** — ships with macOS, nothing to install.
-- **[Obsidian](https://obsidian.md)** (optional, recommended) to view and
-  browse your brain visually.
-
----
+- **Skills** that load and save your context with discipline:
+  `/second-brain:start`, `:close`, `:learn`, `:gate`, `:kickoff`,
+  `:new-project` and `:setup`.
+- A **vault** with the method's templates and guides, one folder per project.
+- **Guard hooks** that inject the working rules at session start, remind you to
+  close a session properly, check that delegated briefs carry evidence, and
+  (optionally) record metrics. Every hook fails open: a problem never blocks
+  your session.
+- Two **agents**, `second-brain:implementer` and `second-brain:tester`, for
+  delegated implementation and testing.
+- **Safety rules**: no git commits/pushes or deletions without your explicit
+  approval, and secrets are never read or stored.
 
 ## Install
 
-```bash
-git clone https://github.com/csaavedras/second-brain-method.git
-cd second-brain-method
-./sbm install
+Inside Claude Code:
+
+```
+/plugin marketplace add Azuky/second-brain
+/plugin install second-brain@azuky
+/second-brain:setup
 ```
 
-Without flags it asks `Language [en]:` and `Vault path [~/second-brain]:`,
-Enter-through defaults included. To skip the prompts: `./sbm install --yes`,
-or be explicit with `--lang en|es` and `--vault PATH` (accepts `~`, and a
-relative path is resolved against your current directory). Already
-installed? `sbm` says so and points you to `./sbm update` instead.
+`/second-brain:setup` creates (or adopts) your vault and checks the install.
+The vault location is the plugin's `vault` option (default `~/second-brain`).
+Setup is safe to re-run: it reports "already set up" instead of duplicating
+anything.
 
-A brand-new or empty vault gets scaffolded (folders, `.gitignore`, a starter
-`00-index/home.md`, its own `git init`); an existing vault keeps its content
-— only the method's `method/` files are added (plus a `git init` if it isn't
-a git repo yet). It finishes with a "HOW TO
-START" checklist — see [How to work](#how-to-work).
+### Requirements
 
-If the vault path you gave already exists, is non-empty, and looks nothing
-like a second-brain vault (no `method/` or `projects/` folder), install asks
-`[y/N]` before adopting it — `--yes` turns that into a hard abort (nothing
-written) unless you also pass `--force`, which skips the check entirely. A
-folder that already has `method/` or `projects/` is always adopted straight
-away, no prompt.
+- **macOS / Linux**: `bash` and `git` (already there on most systems).
+- **Windows**: install [Git for Windows](https://gitforwindows.org/). The hooks
+  run through Git Bash; if it is missing they exit silently and do nothing.
+- **`jq`** is optional. It is only used for metrics (`hooks/metrics-event`,
+  `/second-brain:close` telemetry, the metrics scripts) and for the sbm
+  migration. Without it those parts are skipped quietly.
 
-`./install.sh` still works too, as a thin alias for `./sbm install` — it
-even accepts a bare path as its first argument (`./install.sh <path>`,
-translated to `--vault <path>`) for old bookmarks/docs, but prefer `./sbm`.
-Every subcommand also honors a `CLAUDE_HOME` env var (default `~/.claude`),
-handy to try the method in a sandbox first.
+## Migrating from `sbm`
 
----
+Earlier versions were installed with the `sbm` CLI, which copied commands,
+hooks and a `CLAUDE.md` block into `~/.claude`. The plugin replaces it.
 
-## Update
-
-```bash
-./sbm update
-```
-
-By default this pulls (`git pull --ff-only`) the repo you installed from
-(must be on `main`, clean, else `sbm` suggests `--no-pull`), then re-applies
-the method. Flags: `--no-pull` (apply as is), `--take-new` (see below),
-`--lang en|es`.
-
-**Nothing you edited is ever silently overwritten** — every managed file is
-tracked by checksum. Untouched files update in place; an edited file (or a
-pre-existing file of your own) gets its new version written next to it as
-`<file>.new` to merge by hand; `--take-new` replaces it instead, backing the
-old one up to `~/.claude/.second-brain/backups/<UTC timestamp>/…`.
-`settings.json` is always merged (your model, theme, plugins and hooks
-stay). `CLAUDE.md`: only the block between the `BEGIN`/`END SECOND BRAIN
-METHOD` markers is managed, and it's checksum-tracked too — hand-edit
-*inside* the block and the next update treats it exactly like any other
-edited file (a `CLAUDE.md.new` next to your untouched file; `--take-new`
-backs it up and replaces it); edit outside the block (your own rules) and
-it's always kept. An old install with no markers at all also gets a
-`CLAUDE.md.new` on a plain update — `--take-new` there backs up the file and
-then *appends* the block onto your existing content, so your own rules
-survive. Broken markers abort before touching anything.
-
-Install and update both end with a summary —
-`▸ added=N updated=N conflict=N taken=N deleted=N orphaned=N` —
-where `conflict`/`taken` need your review (`.new` written / replaced with a
-backup) and `deleted`/`orphaned` are files dropped from the method, removed
-if unedited or left in place if you'd edited them.
-
----
-
-## Status
-
-```bash
-./sbm status
-```
-
-Read-only: installed version, language and vault; warns if this repo's
-version has moved on (`run ./sbm update`); lists any pending `.new` files
-and any managed file edited since the last apply — or, when there's nothing
-to look at, `ok — no .new files, nothing edited since the last apply.`
-
----
-
-## Language
-
-`en` (English) or `es` (rioplatense voseo Spanish) — set at install, switched
-later with `./sbm update --lang <en|es>`. Translated: `CLAUDE.md`'s block,
-the commands, the agents, the vault's `method/` docs, and `sbm`'s own
-messages; command and file names never change. Language and vault path are
-remembered in `~/.claude/.second-brain/config.json`.
-
----
-
-## Adopting an existing setup
-
-Already have a hand-rolled `~/.claude`, or an old version of this method?
-`./sbm install --vault <your existing vault>` — nothing is overwritten.
-Anything of yours that collides comes out as `<file>.new`; `./sbm status`
-lists them all, then merge by hand or `./sbm update --no-pull --take-new`
-to take the method's version everywhere (old files backed up first). A
-marker-less `CLAUDE.md` gets the method's block *appended* to it on
-`--take-new`, not replaced — your existing rules stay. If the vault path
-doesn't already have `method/` or `projects/` in it, install will ask before
-adopting it (or refuse outright with `--yes`); pass `--force` to skip that.
-
----
-
-## How to work
-
-Everything revolves around three memory operations: **load** (`/start`),
-**save** (`/close`) and **capitalize** (`/learn`).
-
-### Start a project
-```bash
-cd ~/my-project && claude
-```
-```
-/new-project my-project    ← registers the project in your brain
-/start                     ← opens the session
-```
-
-### A normal workday
-```
-/start          ← tells you where you left off and what the next step is
-...you work...   ← Claude proposes a plan, you approve it, it executes
-/close          ← at the end of each task and when you stop: saves the state
-```
-If you forget to close, the method reminds you before you finish.
-
-### Learn something (with or without a project)
-```
-/learn          ← at the end of a chat: saves what was learned to your brain
-```
-Or specific: `/learn react hooks`.
-
-### Review what you know
-No Claude needed: open your vault in **Obsidian** and browse your projects'
-state, the decisions you made and everything you've learned — graph view
-included.
-
----
-
-## The commands
-
-| Command | When | What it does |
-|---|---|---|
-| `/new-project <name>` | When adding a project | Registers it in the brain and anchors the repo |
-| `/kickoff [name] [brief]` | Kicking off a project from a master prompt | Registers the project, saves the brief, derives the brain and proposes a first plan |
-| `/start` | On opening each session | Loads the state and tells you the next step |
-| `/close` | On closing each task and the session | Saves what was done, what's left and why |
-| `/learn [topic]` | When you learn something that outlasts the day | Adds it to your knowledge graph |
-| `/gate` | Before leaving a commit message | Runs the review lenses that fit the diff and gives a READY/NOT-READY verdict |
-
----
-
-## Where everything lives
-
-- The commands and rules: in `~/.claude/` (Claude Code config), plus its own
-  state under `~/.claude/.second-brain/` (`config.json`, `manifest.json`,
-  `backups/`).
-- Your knowledge: in the **vault** (`~/second-brain` by default) — it's
-  yours, local, and you can version it in your own git repo.
-
----
-
-## Uninstall
-
-There's no `sbm uninstall` — removing the method is a manual, deliberate
-step so it never takes your vault or your own `~/.claude` customizations
-with it:
-
-```bash
-# every file the method installed (commands, agents, hooks, the vault's method/)
-jq -r 'keys[]' ~/.claude/.second-brain/manifest.json |
-  while IFS= read -r f; do rm -f "$f"; done
-rm -rf ~/.claude/.second-brain/   # the method's own state
-```
-
-Then, by hand: delete the block between the `BEGIN`/`END SECOND BRAIN
-METHOD` markers in `~/.claude/CLAUDE.md`, and remove the method's hook
-entries from `~/.claude/settings.json`. The vault is yours — keep it or
-delete it, independently of the above.
-
----
+If an old install is still present, the session-start hook says so, and
+`/second-brain:setup` detects it and offers the migration. It shows exactly what
+would be removed and what is kept (files you edited stay), asks for **one
+confirmation**, backs everything up, then removes the old hooks, commands and
+`CLAUDE.md` block, and renames the vault's old `method/` to `method.sbm-old/`.
+Your projects and notes are never touched. Running it again says there is
+nothing to migrate.
 
 ## Privacy
 
-Your brain is **local**. If you decide to sync it with a git repo, keep in
-mind the method is designed to **never** store secret values (tokens,
-passwords): it only records *names* of variables and where to get them. Even
-so, review before making any vault public.
+Your brain is **local**. The method never stores secret values (tokens,
+passwords): it only records the *names* of variables and where to get them.
+If you sync your vault to a git remote, review it before making it public.
 
----
+## Development
 
-## How does it work under the hood?
+```bash
+bash tests/run-all.sh          # every tests/test-*.sh and tests/check-*.sh
+claude plugin validate --strict .
+```
 
-For anyone who wants the detail, the full method specification (the
-architecture, the multi-agent system, the templates) lives inside your vault
-at `method/README.md` once installed.
+CI runs the suites on macOS, Ubuntu and Windows (Git Bash) and validates the
+manifest with the real Claude Code CLI. The plugin ships without an icon by
+design, so `ICON_MISSING` is the one validation warning tolerated.
 
----
+`legacy/` holds the frozen Spanish sources of the old installer, kept for a
+possible future Spanish edition. It is not shipped.
+
+## Credits
+
+- Based on the second-brain method by
+  [csaavedras](https://github.com/csaavedras), the upstream project this
+  plugin grew out of.
+- The cross-platform hook launcher (`hooks/run-hook.cmd`) is adapted from
+  [superpowers](https://github.com/obra/superpowers) by Jesse Vincent (MIT).
 
 ## License
 
-MIT — use it, adapt it and share it.
+MIT. Use it, adapt it and share it.
