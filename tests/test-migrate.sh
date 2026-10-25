@@ -215,17 +215,25 @@ done
 make_fx t10
 REALJQ="$(command -v jq)"
 CRBIN="$TDIR/t10/crbin"; mkdir -p "$CRBIN"
-cat > "$CRBIN/jq" <<JEOF
+# every output line ends in CR, like a native jq.exe writing through a pipe
+cat > "$CRBIN/jq" <<'JEOF'
 #!/bin/bash
-out="\$("$REALJQ" "\$@")"; rc=\$?
-[ -n "\$out" ] && printf '%s\r\n' "\$out" | sed 's/\\r\\r\$/\\r/'
-exit \$rc
+out="$(@@REALJQ@@ "$@")"; rc=$?
+[ -n "$out" ] && printf '%s\n' "$out" | awk '{ printf "%s\r\n", $0 }'
+exit $rc
 JEOF
+sed "s|@@REALJQ@@|\"$REALJQ\"|" "$CRBIN/jq" > "$CRBIN/jq.tmp" && mv "$CRBIN/jq.tmp" "$CRBIN/jq"
 chmod +x "$CRBIN/jq"
 OUT="$(PATH="$CRBIN:$PATH" bash "$MIGRATE" --claude-home "$CH" --vault "$V" --plan 2>&1)"; RC=$?
-printf '%s\n' "$OUT" | grep -Fxq "  $CH/commands/close.md" && printf '%s\n' "$OUT" | grep -Fxq 'SETTINGS: remove 6 hook entries' \
+# every claude-home manifest file must be under REMOVE (this is the multi-line manifest read)
+miss=0
+for f in agents/implementer.md agents/tester.md commands/close.md commands/gate.md commands/kickoff.md commands/learn.md \
+         commands/new-project.md commands/start.md hooks/check-brief.sh hooks/check-close.sh hooks/metrics-event.sh; do
+  printf '%s\n' "$OUT" | grep -Fxq "  $CH/$f" || { miss=1; echo "  CRLF plan misses: $f"; }
+done
+[ "$miss" = 0 ] && printf '%s\n' "$OUT" | grep -Fxq 'SETTINGS: remove 6 hook entries' \
   && printf '%s\n' "$OUT" | grep -Fxq 'CLAUDE.md: remove managed block' \
-  && pass "CRLF jq: plan lists files, settings and block" || fail "CRLF jq plan: $OUT"
+  && pass "CRLF jq: plan lists all 11 files, settings and block" || fail "CRLF jq plan: $OUT"
 OUT="$(PATH="$CRBIN:$PATH" bash "$MIGRATE" --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK" 2>&1)"; RC=$?
 [ "$RC" = 0 ] && [ ! -e "$CH/commands/close.md" ] && [ ! -e "$CH/hooks/metrics-event.sh" ] && ! grep -q 'SECOND BRAIN METHOD' "$CH/CLAUDE.md" \
   && ! grep -q "$(printf '\r')" "$CH/settings.json" && pass "CRLF jq: apply removes files and block, settings keep LF" || fail "CRLF jq apply rc=$RC out=$OUT"
