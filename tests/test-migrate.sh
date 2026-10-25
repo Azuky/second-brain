@@ -183,6 +183,12 @@ run_mig --claude-home "$TDIR/empty" --vault "$TDIR/empty/v"
 make_fx t9
 run_mig --claude-home "$CH" --vault "$V" --apply
 [ "$RC" = 2 ] && pass "--apply without --backup-dir -> exit 2" || fail "apply w/o backup rc=$RC"
+before="$(tree_sum "$TDIR/t9")"
+for bad in "" "relative/dir" "\${CLAUDE_PLUGIN_DATA}/migration-backup/x"; do
+  run_mig --claude-home "$CH" --vault "$V" --apply --backup-dir "$bad"
+  [ "$RC" = 2 ] && pass "bad --backup-dir '$bad' -> exit 2" || fail "bad backup '$bad' rc=$RC"
+done
+[ "$before" = "$(tree_sum "$TDIR/t9")" ] && pass "bad --backup-dir writes nothing" || fail "bad backup wrote files"
 
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"

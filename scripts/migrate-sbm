@@ -101,6 +101,12 @@ while [ "$#" -gt 0 ]; do
 done
 [ -n "$CLAUDE_HOME_ARG" ] && [ -n "$VAULT_ARG" ] && [ -n "$MODE" ] || usage
 [ "$MODE" = "apply" ] && [ -z "$BACKUP_ARG" ] && usage
+if [ "$MODE" = "apply" ]; then
+  case "$BACKUP_ARG" in
+    /*|[A-Za-z]:[\\/]*) : ;;
+    *) echo "error: --backup-dir must be an absolute path (got: $BACKUP_ARG)" >&2; exit 2 ;;
+  esac
+fi
 
 CH="$(absolute_path "$CLAUDE_HOME_ARG")"
 VAULT="$(absolute_path "$VAULT_ARG")"

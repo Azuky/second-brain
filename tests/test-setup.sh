@@ -81,10 +81,19 @@ run_setup --vault "$V" --claude-home "$CH"
 [ "$RC" = 0 ] && [ "$OUT" = "created" ] && [ -f "$V/00-index/home.md" ] && pass "vault path with spaces" || fail "spaces: rc=$RC out=$OUT"
 
 # 8. sbm install marker -> exit 4, nothing written
-CH2="$TDIR/ch-sbm"; mkdir -p "$CH2/.second-brain"; : > "$CH2/.second-brain/config"
+CH2="$TDIR/ch-sbm"; mkdir -p "$CH2/.second-brain"; : > "$CH2/.second-brain/config.json"
 V="$TDIR/v5"
 run_setup --vault "$V" --claude-home "$CH2"
-[ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && [ ! -e "$V" ] && pass "sbm install -> exit 4, migrate, nothing written" || fail "sbm: rc=$RC out=$OUT"
+[ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && [ ! -e "$V" ] && pass "sbm config.json -> exit 4, migrate, nothing written" || fail "sbm: rc=$RC out=$OUT"
+CH2L="$TDIR/ch-sbm-legacy"; mkdir -p "$CH2L/.second-brain"; : > "$CH2L/.second-brain/config"
+run_setup --vault "$TDIR/v5l" --claude-home "$CH2L"
+[ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && [ ! -e "$TDIR/v5l" ] && pass "legacy sbm config -> exit 4" || fail "legacy sbm: rc=$RC out=$OUT"
+# real sbm install in the sandbox -> exit 4
+CH2R="$TDIR/ch-sbm-real"; mkdir -p "$TDIR/home-real"
+HOME="$TDIR/home-real" CLAUDE_HOME="$CH2R" bash "$REPO_ROOT/sbm" install --yes --vault "$TDIR/v5r" </dev/null >"$TDIR/sbm-real.log" 2>&1 \
+  || fail "real sbm install failed: $(tail -3 "$TDIR/sbm-real.log")"
+run_setup --vault "$TDIR/v5r" --claude-home "$CH2R"
+[ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && pass "real sbm install -> exit 4" || fail "real sbm: rc=$RC out=$OUT"
 
 # 9. hand-copied rules outside markers -> note, CLAUDE.md unchanged
 CH3="$TDIR/ch-rules"; mkdir -p "$CH3"

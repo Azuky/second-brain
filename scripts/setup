@@ -183,7 +183,7 @@ if [ "$VAULT" = "/" ]; then
 fi
 
 # --- old sbm install -------------------------------------------------------
-if [ -e "$CLAUDE_HOME_DIR/.second-brain/config" ]; then
+if [ -e "$CLAUDE_HOME_DIR/.second-brain/config.json" ] || [ -e "$CLAUDE_HOME_DIR/.second-brain/config" ]; then
   echo "migrate"
   exit 4
 fi
