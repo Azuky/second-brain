@@ -92,6 +92,18 @@ rm "$HOME/v/projects/p/CONTEXT.md"
 check "project_context_path file missing" "" "$(project_context_path "$REPO")"
 check "project_context_path no CLAUDE.local.md" "" "$(project_context_path "$SANDBOX/none")"
 
+# spaced paths: backticked resolves; unquoted plain path still resolves
+mkdir -p "$HOME/my vault/projects/p" "$HOME/v/projects/p"
+: > "$HOME/my vault/projects/p/CONTEXT.md"; : > "$HOME/v/projects/p/CONTEXT.md"
+printf 'Live state: `%s/my vault/projects/p/CONTEXT.md`\n' "$HOME" > "$REPO/CLAUDE.local.md"
+check "project_context_path backticked spaced" "$HOME/my vault/projects/p/CONTEXT.md" "$(project_context_path "$REPO")"
+printf 'Live state: `~/my vault/projects/p/CONTEXT.md`\n' > "$REPO/CLAUDE.local.md"
+check "project_context_path backticked spaced tilde" "$HOME/my vault/projects/p/CONTEXT.md" "$(project_context_path "$REPO")"
+printf 'Live state: see ~/v/projects/p/CONTEXT.md (x)\n' > "$REPO/CLAUDE.local.md"
+check "project_context_path unquoted plain" "$HOME/v/projects/p/CONTEXT.md" "$(project_context_path "$REPO")"
+printf 'Old: `~/gone dir/projects/p/CONTEXT.md` and ~/v/projects/p/CONTEXT.md\n' > "$REPO/CLAUDE.local.md"
+check "project_context_path falls back past missing quoted" "$HOME/v/projects/p/CONTEXT.md" "$(project_context_path "$REPO")"
+
 # --- file_newer / file_modified_within_min
 A="$SANDBOX/a"; B="$SANDBOX/b"; : > "$B"; : > "$A"; touch -t 202001010000 "$B"
 file_newer "$A" "$B" && pass "file_newer yes" || fail "file_newer yes"

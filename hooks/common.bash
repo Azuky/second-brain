@@ -112,13 +112,27 @@ hook_cwd() {
 # project_context_path <cwd> -> vault CONTEXT.md named in <cwd>/CLAUDE.local.md
 # (nothing if CLAUDE.local.md or the file is missing)
 project_context_path() {
-  local f="$1/CLAUDE.local.md" ctx
+  local f="$1/CLAUDE.local.md" ctx cand
   [ -f "$f" ] || return 0
-  ctx=$(grep -oE '[~/][^ `)]*/projects/[^ `)]*CONTEXT\.md' "$f" 2>/dev/null | head -1)
-  [ -n "$ctx" ] || return 0
-  ctx=$(normalize_path "$ctx")
-  [ -f "$ctx" ] || return 0
-  printf '%s' "$ctx"
+  # Backtick-quoted paths first (may contain spaces), then the unquoted
+  # form (no spaces) as fallback for older CLAUDE.local.md files.
+  cand=$(
+    {
+      grep -oE '`[~/][^`]*/projects/[^`]*CONTEXT\.md`' "$f" 2>/dev/null | sed -e 's/^`//' -e 's/`$//'
+      grep -oE '[~/][^ `)]*/projects/[^ `)]*CONTEXT\.md' "$f" 2>/dev/null
+    } | awk 'NF'
+  )
+  [ -n "$cand" ] || return 0
+  while IFS= read -r ctx; do
+    ctx=$(normalize_path "$ctx")
+    if [ -f "$ctx" ]; then
+      printf '%s' "$ctx"
+      return 0
+    fi
+  done <<EOF2
+$cand
+EOF2
+  return 0
 }
 
 # file_newer <a> <b> -> exit 0 if a is newer than b

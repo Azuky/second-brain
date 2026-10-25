@@ -83,14 +83,16 @@ OUT="$(cd "$REPO" && run_hook "$PATH" stop "")"; RC=$?
 check "metrics-event empty stdin falls back to PWD: exit 0" "0" "$RC"
 rm -rf "$PROJ/metrics"
 
-# Spaced vault path: project_context_path (common.bash) does not resolve paths
-# with spaces yet (reported as a finding); the hook must still fail open.
+# Spaced vault path: backtick-quoted path in CLAUDE.local.md resolves.
 SP="$SANDBOX/My Brain/projects/p"
 mkdir -p "$SP"; : > "$SP/CONTEXT.md"
-mkdir -p "$SANDBOX/repo2"; echo "state: see $SP/CONTEXT.md" > "$SANDBOX/repo2/CLAUDE.local.md"
-OUT="$(run_hook "$PATH" stop "{\"cwd\":\"$SANDBOX/repo2\"}")"; RC=$?
+mkdir -p "$SANDBOX/repo2"; echo "state: see \`$SP/CONTEXT.md\`" > "$SANDBOX/repo2/CLAUDE.local.md"
+OUT="$(run_hook "$PATH" stop "{\"session_id\":\"s2\",\"cwd\":\"$SANDBOX/repo2\"}")"; RC=$?
 check "metrics-event spaced vault: exit 0" "0" "$RC"
 check "metrics-event spaced vault: silent" "" "$OUT"
+if command -v jq >/dev/null 2>&1; then
+  check "metrics-event spaced vault: appended" "stop" "$(jq -r .event "$SP/metrics/events.jsonl" 2>/dev/null)"
+fi
 
 # --- brain-health
 H="$SANDBOX/health vault"
