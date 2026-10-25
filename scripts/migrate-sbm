@@ -1,0 +1,353 @@
+#!/bin/bash
+# scripts/migrate-sbm — remove an old `sbm` install so the plugin replaces it.
+#
+#   migrate-sbm --claude-home <path> --vault <path> --plan
+#   migrate-sbm --claude-home <path> --vault <path> --apply --backup-dir <dir>
+#
+# --plan prints what --apply would do and writes nothing. --apply executes
+# exactly that plan, backing up every removed file and the pre-edit
+# settings.json / CLAUDE.md under <dir> (mirroring absolute paths), and
+# deletes <claude-home>/.second-brain/ last.
+#
+# Exit codes: 0 ok · 1 nothing to migrate · 2 usage error · 5 sbm's vault is
+# not --vault · 6 jq missing (manual list printed) · 7 could not complete
+# (a path could not be written; the message names it).
+#
+# Takes every path as an argument; never reads CLAUDE_PLUGIN_* variables.
+# Uses jq (required for the full path). Bash 3.2 safe.
+
+CLAUDE_MD_BEGIN='<!-- BEGIN SECOND BRAIN METHOD -->'
+CLAUDE_MD_END='<!-- END SECOND BRAIN METHOD -->'
+HOOK_RE='hooks/(check-close|check-brief|metrics-event)'
+
+usage() {
+  echo "usage: migrate-sbm --claude-home <path> --vault <path> (--plan | --apply --backup-dir <dir>)" >&2
+  exit 2
+}
+
+# normalize_path <path> — expand leading ~, convert C:\ paths via cygpath
+# when present, strip one trailing separator (same logic as hooks/common.bash).
+normalize_path() {
+  local p="$1" c
+  case "$p" in
+    "~") p="$HOME" ;;
+    "~/"*) p="$HOME/${p#\~/}" ;;
+  esac
+  if command -v cygpath >/dev/null 2>&1; then
+    case "$p" in
+      [A-Za-z]:[\\/]*)
+        c=$(cygpath -u "$p" 2>/dev/null) && [ -n "$c" ] && p="$c"
+        ;;
+    esac
+  fi
+  case "$p" in
+    ?*/) p="${p%/}" ;;
+    ?*\\) p="${p%\\}" ;;
+  esac
+  printf '%s' "$p"
+}
+
+# absolute_path <path> — absolute, lexically normalized (no realpath).
+absolute_path() {
+  local p
+  p="$(normalize_path "$1")"
+  case "$p" in
+    /*) : ;;
+    *) p="$PWD/$p" ;;
+  esac
+  local old_ifs="$IFS" seg out=""
+  local kept=()
+  IFS='/'
+  set -f
+  for seg in $p; do
+    case "$seg" in
+      ""|".") : ;;
+      "..")
+        if [ "${#kept[@]}" -gt 0 ]; then
+          unset "kept[$((${#kept[@]} - 1))]"
+          kept=("${kept[@]+"${kept[@]}"}")
+        fi
+        ;;
+      *) kept+=("$seg") ;;
+    esac
+  done
+  set +f
+  IFS="$old_ifs"
+  for seg in "${kept[@]+"${kept[@]}"}"; do
+    out="$out/$seg"
+  done
+  printf '%s' "${out:-/}"
+}
+
+sha_of() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    sha256sum "$1" | cut -d' ' -f1
+  fi
+}
+
+# --- args ------------------------------------------------------------------
+CLAUDE_HOME_ARG="" VAULT_ARG="" MODE="" BACKUP_ARG=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --claude-home) [ "$#" -ge 2 ] || usage; CLAUDE_HOME_ARG="$2"; shift 2 ;;
+    --vault)       [ "$#" -ge 2 ] || usage; VAULT_ARG="$2"; shift 2 ;;
+    --backup-dir)  [ "$#" -ge 2 ] || usage; BACKUP_ARG="$2"; shift 2 ;;
+    --plan)  MODE="plan"; shift ;;
+    --apply) MODE="apply"; shift ;;
+    *) usage ;;
+  esac
+done
+[ -n "$CLAUDE_HOME_ARG" ] && [ -n "$VAULT_ARG" ] && [ -n "$MODE" ] || usage
+[ "$MODE" = "apply" ] && [ -z "$BACKUP_ARG" ] && usage
+
+CH="$(absolute_path "$CLAUDE_HOME_ARG")"
+VAULT="$(absolute_path "$VAULT_ARG")"
+SBM_DIR="$CH/.second-brain"
+MANIFEST="$SBM_DIR/manifest.json"
+CONFIG="$SBM_DIR/config.json"
+[ -f "$CONFIG" ] || CONFIG="$SBM_DIR/config"
+
+# --- is there an sbm install? ---------------------------------------------
+if [ ! -f "$MANIFEST" ] && [ ! -f "$SBM_DIR/config.json" ] && [ ! -f "$SBM_DIR/config" ]; then
+  echo "nothing to migrate: no sbm install found in $CH"
+  exit 1
+fi
+
+# --- jq missing: print the manual list, change nothing -------------------
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is not installed, so the migration cannot run automatically."
+  echo "Install jq and re-run /second-brain:setup, or remove the old install by hand:"
+  echo ""
+  echo "Delete these files (only if you did not edit them):"
+  if [ -f "$MANIFEST" ]; then
+    grep -o '"[^"]*": *"[0-9a-f]\{64\}"' "$MANIFEST" \
+      | sed 's/": *"[0-9a-f]\{64\}"$//; s/^"//; s/\\\\/\\/g; s/\\"/"/g' \
+      | grep -v '#block$' | grep -Fv "$VAULT/method/" | sed 's/^/  /'
+  fi
+  echo "In $CH/settings.json: remove the hook entries whose command contains check-close, check-brief or metrics-event."
+  echo "In $CH/CLAUDE.md: remove the block between '$CLAUDE_MD_BEGIN' and '$CLAUDE_MD_END'."
+  echo "Rename $VAULT/method to $VAULT/method.sbm-old"
+  echo "Finally delete the folder $SBM_DIR"
+  exit 6
+fi
+
+# --- vault must be the one sbm used ---------------------------------------
+if [ -f "$CONFIG" ]; then
+  CFG_VAULT="$(jq -r '.vault // empty' "$CONFIG" 2>/dev/null)"
+  if [ -n "$CFG_VAULT" ]; then
+    CFG_VAULT_N="$(absolute_path "$CFG_VAULT")"
+    if [ "$CFG_VAULT_N" != "$VAULT" ]; then
+      echo "vault mismatch: sbm used $CFG_VAULT_N but --vault is $VAULT" >&2
+      echo "Set \"Vault folder\" to $CFG_VAULT_N and run /second-brain:setup again." >&2
+      exit 5
+    fi
+  fi
+fi
+
+# --- build the plan --------------------------------------------------------
+REMOVE_LIST=""    # newline separated absolute paths
+KEEP_EDITED=""
+KEEP_NEW=""
+SETTINGS_N=0
+SETTINGS_BAD=0
+CLAUDE_MD=""
+CLAUDE_ACTION=""  # "" | remove | keep
+VAULT_FROM="" VAULT_TO=""
+
+add_line() { # add_line <varname> <line>
+  eval "$1=\"\${$1}\${$1:+
+}\$2\""
+}
+
+if [ -f "$MANIFEST" ]; then
+  if ! jq -e 'type == "object"' "$MANIFEST" >/dev/null 2>&1; then
+    echo "error: $MANIFEST is not valid JSON" >&2
+    exit 7
+  fi
+  TAB="$(printf '\t')"
+  while IFS="$TAB" read -r rec_sha rec_path; do
+    [ -n "$rec_path" ] || continue
+    case "$rec_path" in
+      *"#block") CLAUDE_MD="${rec_path%#block}"; BLOCK_SHA="$rec_sha"; continue ;;
+      "$VAULT/method/"*) continue ;;
+    esac
+    [ -f "$rec_path.new" ] && add_line KEEP_NEW "$rec_path.new"
+    [ -f "$rec_path" ] || continue
+    if [ "$(sha_of "$rec_path")" = "$rec_sha" ]; then
+      add_line REMOVE_LIST "$rec_path"
+    else
+      add_line KEEP_EDITED "$rec_path"
+    fi
+  done <<EOM
+$(jq -r 'to_entries[] | "\(.value)\t\(.key)"' "$MANIFEST")
+EOM
+fi
+[ -n "$CLAUDE_MD" ] || CLAUDE_MD="$CH/CLAUDE.md"
+
+# settings.json: count sbm hook entries
+SETTINGS="$CH/settings.json"
+JQ_KEEP='(([(.hooks? // [])[]?.command] | join(" ")) | test($re) | not)'
+if [ -f "$SETTINGS" ]; then
+  SETTINGS_N="$(jq -r --arg re "$HOOK_RE" '
+    [ (.hooks // {}) | to_entries[] | .value | arrays | .[] | select('"$JQ_KEEP"' | not) ] | length
+  ' "$SETTINGS" 2>/dev/null)" || SETTINGS_BAD=1
+  [ -n "$SETTINGS_N" ] || { SETTINGS_N=0; SETTINGS_BAD=1; }
+fi
+
+# CLAUDE.md block
+block_lines() { # prints "<begin_line> <end_line>" or fails when not exactly one well-ordered pair
+  local f="$1" bc ec bl el
+  bc="$(grep -Fc -- "$CLAUDE_MD_BEGIN" "$f")"
+  ec="$(grep -Fc -- "$CLAUDE_MD_END" "$f")"
+  [ "$bc" = 1 ] && [ "$ec" = 1 ] || return 1
+  bl="$(grep -Fn -- "$CLAUDE_MD_BEGIN" "$f" | head -1 | cut -d: -f1)"
+  el="$(grep -Fn -- "$CLAUDE_MD_END" "$f" | head -1 | cut -d: -f1)"
+  [ "$el" -gt "$bl" ] || return 1
+  # markers must stand alone on their lines
+  [ "$(sed -n "${bl}p" "$f")" = "$CLAUDE_MD_BEGIN" ] || return 1
+  [ "$(sed -n "${el}p" "$f")" = "$CLAUDE_MD_END" ] || return 1
+  echo "$bl $el"
+}
+
+# block_sha <file> <begin> <end> — sha256 of the inner content (lines between
+# the markers, joined by \n, no trailing newline): same bytes sbm hashed.
+block_sha() {
+  local f="$1" bl="$2" el="$3"
+  awk -v b="$bl" -v e="$el" 'NR>b && NR<e { if (n++) printf "\n"; printf "%s", $0 }' "$f" \
+    | if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi | cut -d' ' -f1
+}
+
+BL="" EL=""
+if [ -f "$CLAUDE_MD" ]; then
+  if grep -Fq -- "$CLAUDE_MD_BEGIN" "$CLAUDE_MD" || grep -Fq -- "$CLAUDE_MD_END" "$CLAUDE_MD"; then
+    CLAUDE_ACTION="keep"
+    if pair="$(block_lines "$CLAUDE_MD")" && [ -n "${BLOCK_SHA:-}" ]; then
+      BL="${pair% *}"; EL="${pair#* }"
+      [ "$(block_sha "$CLAUDE_MD" "$BL" "$EL")" = "$BLOCK_SHA" ] && CLAUDE_ACTION="remove"
+    fi
+  fi
+fi
+
+# vault method/ rename
+if [ -d "$VAULT/method" ]; then
+  VAULT_FROM="method"
+  VAULT_TO="method.sbm-old"
+  if [ -e "$VAULT/$VAULT_TO" ]; then
+    ts="$(date -u +%Y%m%dT%H%M%SZ)"
+    VAULT_TO="method.sbm-old-$ts"
+    i=1
+    while [ -e "$VAULT/$VAULT_TO" ]; do
+      i=$((i + 1)); VAULT_TO="method.sbm-old-$ts-$i"
+    done
+  fi
+fi
+
+# --- print the plan --------------------------------------------------------
+print_list() { # print_list <header> <list>
+  [ -n "$2" ] || return 0
+  echo "$1"
+  printf '%s\n' "$2" | while IFS= read -r l; do printf '  %s\n' "$l"; done
+}
+print_list "REMOVE:" "$REMOVE_LIST"
+print_list "KEEP (edited):" "$KEEP_EDITED"
+print_list "KEEP (pending .new):" "$KEEP_NEW"
+if [ "$SETTINGS_BAD" = 1 ]; then
+  echo "SETTINGS: unreadable, skip"
+elif [ "$SETTINGS_N" -gt 0 ]; then
+  echo "SETTINGS: remove $SETTINGS_N hook entries"
+fi
+case "$CLAUDE_ACTION" in
+  remove) echo "CLAUDE.md: remove managed block" ;;
+  keep)   echo "CLAUDE.md: block edited, keep" ;;
+esac
+[ -n "$VAULT_FROM" ] && echo "VAULT: rename method/ -> $VAULT_TO/"
+
+[ "$MODE" = "plan" ] && exit 0
+
+# --- apply -----------------------------------------------------------------
+BACKUP="$(absolute_path "$BACKUP_ARG")"
+fail_write() { echo "error: could not write $1" >&2; exit 7; }
+
+backup_file() { # backup_file <abs path>
+  mkdir -p "$BACKUP$(dirname "$1")" || fail_write "$BACKUP$(dirname "$1")"
+  cp -p "$1" "$BACKUP$1" || fail_write "$BACKUP$1"
+}
+
+mkdir -p "$BACKUP" || fail_write "$BACKUP"
+
+# 1. files
+if [ -n "$REMOVE_LIST" ]; then
+  while IFS= read -r f; do
+    backup_file "$f"
+    rm -f "$f" || fail_write "$f"
+  done <<EOM
+$REMOVE_LIST
+EOM
+fi
+
+# 2. settings.json
+if [ "$SETTINGS_BAD" = 0 ] && [ "$SETTINGS_N" -gt 0 ]; then
+  backup_file "$SETTINGS"
+  tmp="$(mktemp "$CH/.settings-migrate.XXXXXX")" || fail_write "$CH"
+  if jq --arg re "$HOOK_RE" '
+      if (.hooks | type) == "object" then
+        .hooks |= ( to_entries
+          | map( . as $e
+              | if ($e.value | type) == "array" then
+                  ($e.value | map(select('"$JQ_KEEP"'))) as $k
+                  | if ($k | length) == ($e.value | length) then $e
+                    elif ($k | length) == 0 then empty
+                    else .value = $k end
+                else $e end )
+          | from_entries )
+        | if (.hooks | length) == 0 then del(.hooks) else . end
+      else . end' "$SETTINGS" > "$tmp"; then
+    cat "$tmp" > "$SETTINGS" || { rm -f "$tmp"; fail_write "$SETTINGS"; }
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    fail_write "$SETTINGS"
+  fi
+fi
+
+# 3. CLAUDE.md
+if [ "$CLAUDE_ACTION" = "remove" ]; then
+  backup_file "$CLAUDE_MD"
+  tmp="$(mktemp "$CH/.claude-md-migrate.XXXXXX")" || fail_write "$CH"
+  awk -v b="$BL" -v e="$EL" '
+    { line[NR] = $0 }
+    END {
+      total = NR
+      prev_blank = (b > 1 && line[b-1] == "")
+      next_blank = (e < total && line[e+1] == "")
+      at_start = (b == 1)
+      at_end = (e == total)
+      skip_prev = 0; skip_next = 0
+      if (prev_blank && next_blank) skip_next = 1
+      else if (prev_blank && at_end) skip_prev = 1
+      else if (at_start && next_blank) skip_next = 1
+      for (i = 1; i <= total; i++) {
+        if (i >= b && i <= e) continue
+        if (skip_prev && i == b - 1) continue
+        if (skip_next && i == e + 1) continue
+        print line[i]
+      }
+    }' "$CLAUDE_MD" > "$tmp" || { rm -f "$tmp"; fail_write "$CLAUDE_MD"; }
+  cat "$tmp" > "$CLAUDE_MD" || { rm -f "$tmp"; fail_write "$CLAUDE_MD"; }
+  rm -f "$tmp"
+fi
+
+# 4. vault method/
+if [ -n "$VAULT_FROM" ]; then
+  mv "$VAULT/$VAULT_FROM" "$VAULT/$VAULT_TO" || fail_write "$VAULT/$VAULT_TO"
+fi
+
+# 5. sbm state, last (back it up first: it is the record of what was installed)
+mkdir -p "$BACKUP$CH" || fail_write "$BACKUP$CH"
+cp -Rp "$SBM_DIR" "$BACKUP$CH/" || fail_write "$BACKUP$SBM_DIR"
+rm -rf "$SBM_DIR" || fail_write "$SBM_DIR"
+
+echo "migrated: backup in $BACKUP"
+exit 0

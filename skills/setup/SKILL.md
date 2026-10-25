@@ -19,19 +19,36 @@ Act on the exit code:
   whether to add the vault structure alongside their files. Only on a clear
   yes, re-run the same command with `--confirm-foreign`. On no, stop and
   suggest changing "Vault folder" in `/config`.
-- **4**: an old `sbm` install was found.
-  **PLACEHOLDER (Task 10):** the migration step is not part of this skill
-  yet. Tell the user an old install was detected, that migrating it arrives
-  in a later release, and stop. Do not re-run the script.
+- **4**: an old `sbm` install was found. Migrate it, with one confirmation:
+  1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrate-sbm" --claude-home "$HOME/.claude" --vault "${user_config.vault}" --plan`
+     and show the user its output as is. It lists what would be removed, what
+     is kept because the user edited it, the settings and `CLAUDE.md` changes,
+     and the vault `method/` rename. Nothing is written yet.
+  2. Act on the exit code of `migrate-sbm` (these codes belong to
+     `migrate-sbm`, not to the setup script):
+     - **0**: ask ONCE whether to apply it, and say a backup is kept. On no,
+       stop: nothing changed. On yes, compute `ts=$(date -u +%Y%m%dT%H%M%SZ)`
+       and run the same command with
+       `--apply --backup-dir "${CLAUDE_PLUGIN_DATA}/migration-backup/$ts"`
+       instead of `--plan`. If that exits 0, re-run the setup command above,
+       report the result in plain words and tell the user to restart Claude
+       Code so the old hooks stop loading.
+     - **5**: the old install used a different vault than "Vault folder". Show
+       the message (it names the old path), tell the user to set "Vault
+       folder" in `/config` to that old path, then run `/second-brain:setup`
+       again. Stop.
+     - **6**: `jq` is not installed, so the migration cannot run
+       automatically. Show the manual list it printed and stop.
+     - **1**: there was nothing to migrate. Say so and re-run the setup
+       command above.
+     - **2** or **7**: show the message and stop (7 names the path that could
+       not be written).
+  Quote every path.
 - **2**: usage error. Show the message and stop.
 - **1**: the script could not write the vault folder or a file in it (the
   message names the path). Nothing is reported as done. Tell the user in plain
   words which path failed and suggest checking its permissions or changing
   "Vault folder" in `/config`, then stop.
-
-If a later migration reports that the vault differs from the configured one,
-tell the user to change "Vault folder" in `/config` and run
-`/second-brain:setup` again.
 
 Finish by reporting the result in plain words: where the vault is, whether it
 was created, adopted or already set up, and any note that appeared.
