@@ -49,18 +49,16 @@ esac
 # content is a plain string (and no tool_use). api-request-blob lines replay
 # earlier requests and are never the report. Lines that are only thinking or
 # tool_use blocks are skipped, so the previous text line is judged.
-LINE=""
-while IFS= read -r _l; do
-  case "$_l" in *'"api-request-blob"'*) continue ;; esac
-  if printf '%s' "$_l" | grep -aEq "$TYPE_TEXT"; then
-    LINE="$_l"
-  elif printf '%s' "$_l" | grep -aEq "$CONTENT_STR" &&
-       ! printf '%s' "$_l" | grep -aEq "$TOOL_USE"; then
-    LINE="$_l"
-  fi
-done <<EOT
-$(grep -a -E "$ROLE_ASSISTANT" "$FILE" 2>/dev/null)
-EOT
+# One awk pass (regexes via ENVIRON so backslashes stay literal).
+LINE="$(RA="$ROLE_ASSISTANT" TT="$TYPE_TEXT" CS="$CONTENT_STR" TU="$TOOL_USE" \
+  LC_ALL=C awk '
+  BEGIN { ra = ENVIRON["RA"]; tt = ENVIRON["TT"]; cs = ENVIRON["CS"]; tu = ENVIRON["TU"] }
+  $0 !~ ra { next }
+  index($0, "\"api-request-blob\"") { next }
+  $0 ~ tt { l = $0; next }
+  $0 ~ cs && $0 !~ tu { l = $0 }
+  END { if (l != "") print l }
+' "$FILE" 2>/dev/null)"
 [ -n "$LINE" ] || exit 0
 
 # Report text: → -> arrow first, then JSON-unescape. A plain-string
