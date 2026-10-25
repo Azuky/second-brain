@@ -88,10 +88,10 @@ run_setup --vault "$V" --claude-home "$CH2"
 CH2L="$TDIR/ch-sbm-legacy"; mkdir -p "$CH2L/.second-brain"; : > "$CH2L/.second-brain/config"
 run_setup --vault "$TDIR/v5l" --claude-home "$CH2L"
 [ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && [ ! -e "$TDIR/v5l" ] && pass "legacy sbm config -> exit 4" || fail "legacy sbm: rc=$RC out=$OUT"
-# real sbm install in the sandbox -> exit 4
-CH2R="$TDIR/ch-sbm-real"; mkdir -p "$TDIR/home-real"
-HOME="$TDIR/home-real" CLAUDE_HOME="$CH2R" bash "$REPO_ROOT/sbm" install --yes --vault "$TDIR/v5r" </dev/null >"$TDIR/sbm-real.log" 2>&1 \
-  || fail "real sbm install failed: $(tail -3 "$TDIR/sbm-real.log")"
+# frozen real sbm install (tests/fixtures/sbm-install) materialized in the sandbox -> exit 4
+CH2R="$TDIR/ch-sbm-real"
+bash "$REPO_ROOT/tests/fixtures/sbm-install/materialize" "$CH2R" "$TDIR/v5r" >"$TDIR/sbm-real.log" 2>&1 \
+  || fail "materialize sbm fixture failed: $(tail -3 "$TDIR/sbm-real.log")"
 run_setup --vault "$TDIR/v5r" --claude-home "$CH2R"
 [ "$RC" = 4 ] && [ "$OUT" = "migrate" ] && pass "real sbm install -> exit 4" || fail "real sbm: rc=$RC out=$OUT"
 

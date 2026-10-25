@@ -1,0 +1,71 @@
+#!/bin/bash
+# materialize <claude-home> <vault> — recreate a real `sbm install --yes` tree
+# from the frozen fixture (see README.md). Replaces @@CLAUDE_HOME@@ / @@VAULT@@
+# in file contents and manifest keys, and recomputes manifest shas ONLY for
+# entries whose content changed through substitution (CLAUDE.md uses the same
+# inner-block sha as scripts/migrate-sbm). Bash 3.2 safe, no jq.
+set -u
+[ $# -eq 2 ] || { echo "usage: materialize <claude-home> <vault>" >&2; exit 2; }
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CH="${1%/}"; V="${2%/}"
+BEGIN='<!-- BEGIN SECOND BRAIN METHOD -->'
+END='<!-- END SECOND BRAIN METHOD -->'
+
+esc() { printf '%s' "$1" | sed 's/[\\&|]/\\&/g'; }
+CHE="$(esc "$CH")"; VE="$(esc "$V")"
+subst() { sed "s|@@CLAUDE_HOME@@|$CHE|g; s|@@VAULT@@|$VE|g" "$1"; }
+
+sha_stdin() { if command -v shasum >/dev/null 2>&1; then shasum -a 256; else sha256sum; fi | cut -d' ' -f1; }
+
+block_sha() { # <file>
+  local f="$1" bl el
+  bl="$(grep -Fn -- "$BEGIN" "$f" | head -1 | cut -d: -f1)"
+  el="$(grep -Fn -- "$END" "$f" | head -1 | cut -d: -f1)"
+  awk -v b="$bl" -v e="$el" 'NR>b && NR<e { if (n++) printf "\n"; printf "%s", $0 }' "$f" | sha_stdin
+}
+
+copy_tree() { # <src-root> <dst-root>
+  local src="$1" dst="$2" f
+  mkdir -p "$dst"
+  (cd "$src" && find . -type f | LC_ALL=C sort) | while IFS= read -r f; do
+    f="${f#./}"
+    mkdir -p "$dst/$(dirname "$f")"
+    subst "$src/$f" > "$dst/$f"
+    [ -x "$src/$f" ] && chmod +x "$dst/$f"
+  done
+  return 0
+}
+
+mkdir -p "$CH/.second-brain"
+copy_tree "$HERE/claude-home" "$CH"
+copy_tree "$HERE/vault" "$V"
+# empty vault directories sbm creates (git cannot store them in the fixture)
+for d in 00-index briefs learning/til learning/concept patterns projects; do mkdir -p "$V/$d"; done
+
+# manifest: substitute keys; recompute sha only where substitution changed content
+SRC_MAN="$HERE/claude-home/.second-brain/manifest.json"
+OUT_MAN="$CH/.second-brain/manifest.json"
+total="$(grep -c '^  "' "$SRC_MAN")"
+{
+  echo '{'
+  i=0
+  grep '^  "' "$SRC_MAN" | while IFS= read -r line; do
+    i=$((i + 1))
+    key="$(printf '%s' "$line" | sed 's/^  "\(.*\)": "[0-9a-f]*",\{0,1\}$/\1/')"
+    sha="$(printf '%s' "$line" | sed 's/^.*": "\([0-9a-f]*\)",\{0,1\}$/\1/')"
+    isblock=0
+    case "$key" in *"#block") isblock=1; key="${key%#block}" ;; esac
+    case "$key" in
+      @@CLAUDE_HOME@@/*) rel="${key#@@CLAUDE_HOME@@/}"; src="$HERE/claude-home/$rel"; dst="$CH/$rel" ;;
+      @@VAULT@@/*)       rel="${key#@@VAULT@@/}";       src="$HERE/vault/$rel";       dst="$V/$rel" ;;
+    esac
+    if ! cmp -s "$src" "$dst"; then
+      if [ "$isblock" = 1 ]; then sha="$(block_sha "$dst")"; else sha="$(sha_stdin < "$dst")"; fi
+    fi
+    [ "$isblock" = 1 ] && key="$key#block"
+    realkey="$(printf '%s' "$key" | sed "s|@@CLAUDE_HOME@@|$CHE|; s|@@VAULT@@|$VE|")"
+    sep=","; [ "$i" = "$total" ] && sep=""
+    printf '  "%s": "%s"%s\n' "$realkey" "$sha" "$sep"
+  done
+  echo '}'
+} > "$OUT_MAN"
