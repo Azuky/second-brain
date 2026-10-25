@@ -14,7 +14,7 @@ pass() { PASS_COUNT=$((PASS_COUNT + 1)); echo "PASS: $1"; }
 fail() { FAIL_COUNT=$((FAIL_COUNT + 1)); echo "FAIL: $1"; }
 
 TDIR="$(mktemp -d)" || { echo "FAIL: mktemp -d failed"; exit 1; }
-trap 'rm -rf "$TDIR"' EXIT
+trap 'chmod -R u+w "$TDIR" 2>/dev/null; rm -rf "$TDIR"' EXIT
 export HOME="$TDIR/home"
 mkdir -p "$HOME"
 CH="$TDIR/claude-home"   # empty fixture claude home
@@ -106,6 +106,18 @@ run_setup --plugin-root "$REPO_ROOT"
 [ "$RC" = 2 ] && pass "missing --vault -> exit 2" || fail "usage rc=$RC"
 run_setup --vault "$TDIR/v8" --bogus
 [ "$RC" = 2 ] && [ ! -e "$TDIR/v8" ] && pass "unknown flag -> exit 2" || fail "bogus rc=$RC"
+
+# 12. unwritable parent -> exit non-zero, error names path, no success word
+if [ "$(id -u)" = 0 ]; then
+  echo "SKIP: unwritable-path test (running as root ignores permissions)"
+else
+  RO="$TDIR/readonly"; mkdir -p "$RO"; chmod a-w "$RO"
+  run_setup --vault "$RO/vault" --claude-home "$CH"
+  chmod u+w "$RO"
+  case "$OUT" in *created*|*adopted*|*"already set up"*) fail "unwritable: printed success word: $OUT" ;; *) pass "unwritable: no success word" ;; esac
+  [ "$RC" != 0 ] && pass "unwritable: exit non-zero ($RC)" || fail "unwritable: rc=0"
+  case "$OUT" in *"$RO/vault"*) pass "unwritable: error names the path" ;; *) fail "unwritable: path not named: $OUT" ;; esac
+fi
 
 echo "Passed: $PASS_COUNT  Failed: $FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]
