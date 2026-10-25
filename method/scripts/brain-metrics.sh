@@ -1,7 +1,7 @@
 #!/bin/bash
 # brain-metrics — rollup of task metrics across all projects (0 LLM tokens).
 # Aggregates each project's metrics/metrics.jsonl (one line per closed task,
-# written by /close via collect-metrics.sh) into a human-readable report:
+# written by /second-brain:close via collect-metrics.sh) into a human-readable report:
 # duration & tokens by task type, estimate-vs-actual, parent-vs-subagent
 # token split, and month-over-month evolution. See METRICS.md for the
 # schema. Malformed lines are skipped and counted, never fatal.
