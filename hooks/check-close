@@ -1,0 +1,59 @@
+#!/bin/bash
+# hooks/check-close — Stop / PreCompact hook: verifies that the vault's
+# CONTEXT.md was updated during the session in method repos.
+# Usage: check-close stop | check-close precompact
+# Fails open: no `set -e`; any problem exits 0 with no output.
+
+_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+# shellcheck source=common.bash
+. "$_dir/common.bash" 2>/dev/null || exit 0
+
+EVENT="${1:-stop}"
+INPUT="$(cat 2>/dev/null)"
+
+CWD="$(hook_cwd "$INPUT")"
+
+# Only applies to projects where the method is instantiated
+[ -f "$CWD/CLAUDE.local.md" ] || exit 0
+
+# Avoid loop: if Stop already blocked once, don't block again
+if [ "$EVENT" = "stop" ] && [ "$(json_get_bool "$INPUT" stop_hook_active)" = "true" ]; then
+  exit 0
+fi
+
+CONTEXT="$(project_context_path "$CWD")"
+[ -n "$CONTEXT" ] || exit 0
+
+# Updated during this session? Compare against the session marker written by
+# session-start; without a usable marker, use a 30-minute window.
+MARKER=""
+if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+  _sid="$(json_get_string "$INPUT" session_id)"
+  case "$_sid" in
+    ""|*/*|*\\*|*..*) ;;
+    *) MARKER="$CLAUDE_PLUGIN_DATA/sessions/$_sid.start" ;;
+  esac
+fi
+if [ -n "$MARKER" ] && [ -f "$MARKER" ]; then
+  file_newer "$CONTEXT" "$MARKER" && exit 0
+else
+  file_modified_within_min "$CONTEXT" 30 && exit 0
+fi
+
+case "$CONTEXT" in
+  "$HOME"/*) REL="~${CONTEXT#"$HOME"}" ;;
+  *) REL="$CONTEXT" ;;
+esac
+
+if [ "$EVENT" = "stop" ]; then
+  # shellcheck disable=SC2059
+  R="$(printf "Method close rule: the vault's CONTEXT.md (%s) was not updated in this session. If there was project work, run the /close routine now (~/.claude/commands/close.md): verification, CONTEXT.md, brain, commit message. If the session was read-only and there is nothing to close, say so explicitly and stop." "$REL")"
+  emit_json "{\"decision\":\"block\",\"reason\":\"$(json_escape "$R")\"}
+"
+else
+  M="$(printf '⚠️ Compacting with CONTEXT.md not updated (%s) — run /close to persist the state before detail is lost.' "$REL")"
+  C="$(printf 'The conversation is about to be compacted and the vault'"'"'s CONTEXT.md (%s) was not updated in this session. Before continuing, persist the state per /close: tasks, decisions, exact starting point for the next session.' "$REL")"
+  emit_json "{\"systemMessage\":\"$(json_escape "$M")\",\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"$(json_escape "$C")\"}}
+"
+fi
+exit 0
