@@ -2,6 +2,9 @@
 # hooks/check-close — Stop / PreCompact hook: verifies that the vault's
 # CONTEXT.md was updated during the session in method repos.
 # Usage: check-close stop | check-close precompact
+# Stop blocks at most once per session (flag $CLAUDE_PLUGIN_DATA/sessions/<sid>.reminded);
+# PreCompact ignores the flag. Without a safe session_id or CLAUDE_PLUGIN_DATA
+# it blocks on every stale stop.
 # Fails open: no `set -e`; any problem exits 0 with no output.
 
 _dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
@@ -27,11 +30,15 @@ CONTEXT="$(project_context_path "$CWD")"
 # Updated during this session? Compare against the session marker written by
 # session-start; without a usable marker, use a 30-minute window.
 MARKER=""
+REMINDED=""
 if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
   _sid="$(json_get_string "$INPUT" session_id)"
   case "$_sid" in
     ""|*/*|*\\*|*..*) ;;
-    *) MARKER="$CLAUDE_PLUGIN_DATA/sessions/$_sid.start" ;;
+    *)
+      MARKER="$CLAUDE_PLUGIN_DATA/sessions/$_sid.start"
+      REMINDED="$CLAUDE_PLUGIN_DATA/sessions/$_sid.reminded"
+      ;;
   esac
 fi
 if [ -n "$MARKER" ] && [ -f "$MARKER" ]; then
@@ -46,6 +53,11 @@ case "$CONTEXT" in
 esac
 
 if [ "$EVENT" = "stop" ]; then
+  # Block at most once per session: flag file, best effort.
+  if [ -n "$REMINDED" ]; then
+    [ -e "$REMINDED" ] && exit 0
+    { mkdir -p "$CLAUDE_PLUGIN_DATA/sessions" && : > "$REMINDED"; } >/dev/null 2>&1
+  fi
   # shellcheck disable=SC2059
   R="$(printf "Method close rule: the vault's CONTEXT.md (%s) was not updated in this session. If there was project work, run the /second-brain:close routine now: verification, CONTEXT.md, brain, commit message. If the session was read-only and there is nothing to close, say so explicitly and stop." "$REL")"
   emit_json "{\"decision\":\"block\",\"reason\":\"$(json_escape "$R")\"}

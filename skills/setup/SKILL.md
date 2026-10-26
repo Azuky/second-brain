@@ -10,6 +10,9 @@ Set up the vault for the method. Run:
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/setup" --vault "${user_config.vault}" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
 ```
 
+Run it exactly as written; do not expand or rewrite `~` (the script expands
+it).
+
 Act on the exit code:
 
 - **0**: the last line says `created`, `adopted` or `already set up`. If a
@@ -47,6 +50,10 @@ Act on the exit code:
      - **2** or **7**: show the message and stop (7 names the path that could
        not be written).
   Quote every path.
+- **8**: the "Vault folder" setting is empty (it was never saved). Tell the
+  user in plain words: open `/config`, edit and save "Vault folder" (the
+  default shown there is not saved until it is edited), restart Claude Code,
+  then run `/second-brain:setup` again. Stop.
 - **2**: usage error. Show the message and stop.
 - **1**: the script could not write the vault folder or a file in it (the
   message names the path). Nothing is reported as done. Tell the user in plain

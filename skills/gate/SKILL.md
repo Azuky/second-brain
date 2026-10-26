@@ -1,7 +1,6 @@
 ---
 name: gate
-description: Risk-based pre-commit gate — review lenses, fix cycle, READY/NOT-READY verdict
-disable-model-invocation: true
+description: Use before leaving a commit message for code destined for a commit/MR — risk-based review lenses, fix cycle, READY/NOT-READY verdict
 ---
 
 Run the method's quality gate on the current working diff, BEFORE leaving a

@@ -3,6 +3,8 @@
 # Usage: setup --vault <path> --plugin-root <path> [--claude-home <path>] [--confirm-foreign]
 # Exit: 0 done (prints created | adopted | already set up)
 #       2 usage error
+#       8 --vault empty or still an unexpanded ${...} placeholder (the
+#         "Vault folder" setting was never saved); nothing written
 #       3 foreign non-empty folder, nothing written
 #       4 old sbm install found (prints "migrate"), nothing written
 #       1 a directory or file could not be written (error names the path on
@@ -162,16 +164,26 @@ has_handcopied_rules() {
 }
 
 # --- argument parsing ------------------------------------------------------
-VAULT="" PLUGIN_ROOT="" CLAUDE_HOME_ARG="" CONFIRM=0
+VAULT="" VAULT_SEEN=0 PLUGIN_ROOT="" CLAUDE_HOME_ARG="" CONFIRM=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --vault) [ $# -ge 2 ] || usage; VAULT="$2"; shift 2 ;;
+    --vault) [ $# -ge 2 ] || usage; VAULT="$2"; VAULT_SEEN=1; shift 2 ;;
     --plugin-root) [ $# -ge 2 ] || usage; PLUGIN_ROOT="$2"; shift 2 ;;
     --claude-home) [ $# -ge 2 ] || usage; CLAUDE_HOME_ARG="$2"; shift 2 ;;
     --confirm-foreign) CONFIRM=1; shift ;;
     *) usage ;;
   esac
 done
+case "$VAULT_SEEN" in
+  1)
+    case "$VAULT" in
+      ""|'${'*)
+        echo 'vault folder not configured: set "Vault folder" in /config (edit and save it — the default shown there is not saved), then run /second-brain:setup again' >&2
+        exit 8
+        ;;
+    esac
+    ;;
+esac
 [ -n "$VAULT" ] && [ -n "$PLUGIN_ROOT" ] || usage
 
 CLAUDE_HOME_DIR="$(normalize_path "${CLAUDE_HOME_ARG:-$HOME/.claude}")"

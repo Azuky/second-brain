@@ -98,9 +98,29 @@ rm -f "$MARK"
 touch "$CTXF"
 OUT="$(run_hook stop "$IN")"
 check "no marker, CONTEXT now: no output" "" "$OUT"
-touch -t "$OLD" "$CTXF"
+touch -t "$OLD" "$CTXF"; rm -f "$DATA/sessions/"*.reminded
 OUT="$(run_hook stop "$IN")"
 has "no marker, CONTEXT 2h ago: block" '"decision":"block"' "$OUT"
+
+# Block at most once per session: <sid>.reminded flag
+rm -f "$DATA/sessions/"*.reminded
+: > "$MARK"; touch -t "$OLDER" "$CTXF"; touch -t "$OLD" "$MARK"
+OUT="$(run_hook stop "$IN")"
+has "reminded: 1st stop blocks" '"decision":"block"' "$OUT"
+[ -f "$DATA/sessions/s1.reminded" ] && pass "reminded: flag created" || fail "reminded: flag created"
+OUT="$(run_hook stop "$IN")"; RC=$?
+check "reminded: 2nd stop exit 0" "0" "$RC"
+check "reminded: 2nd stop no output" "" "$OUT"
+OUT="$(run_hook stop "{\"session_id\":\"s2\",\"cwd\":\"$REPO\"}")"
+has "reminded: other session still blocks" '"decision":"block"' "$OUT"
+OUT="$(run_hook precompact "$IN")"
+has "reminded: precompact still emits" "PreCompact" "$OUT"
+rm -f "$DATA/sessions/"*.reminded
+OUT="$(printf '%s' "$IN" | env -i PATH="$PATH" HOME="$HOME_D" bash "$HOOK" stop)"
+has "no plugin data: 1st stop blocks" '"decision":"block"' "$OUT"
+OUT="$(printf '%s' "$IN" | env -i PATH="$PATH" HOME="$HOME_D" bash "$HOOK" stop)"
+has "no plugin data: 2nd stop blocks again" '"decision":"block"' "$OUT"
+rm -f "$DATA/sessions/"*.reminded
 
 # CLAUDE_PLUGIN_DATA unset -> fallback too
 OUT="$(printf '%s' "$IN" | env -i PATH="$PATH" HOME="$HOME_D" bash "$HOOK" stop)"
