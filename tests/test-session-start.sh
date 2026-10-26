@@ -61,9 +61,16 @@ N="$(printf '%s' "$OUT" | wc -c | tr -d ' ')"
 OUT="$(run_hook '{"session_id":"x"}' CLAUDE_PLUGIN_OPTION_VAULT=)"; RC=$?
 check "empty vault: exit 0" "0" "$RC"
 has "empty vault: setup hint" "run /second-brain:setup" "$OUT"
+has "empty vault: points to /config" 'Vault folder\" is not set' "$OUT"
+has "empty vault: config guidance" "/config" "$OUT"
+hasnt "empty vault: no not-set-up line" "not set up" "$OUT"
+N="$(printf '%s' "$OUT" | wc -c | tr -d ' ')"
+[ "$N" -lt 4000 ] && pass "empty vault: output < 4000 ($N bytes)" || fail "empty vault: output < 4000 ($N bytes)"
 
 OUT="$(run_hook '{}' CLAUDE_PLUGIN_OPTION_VAULT="$SANDBOX/nope")"
 has "vault without projects/: setup hint" "run /second-brain:setup" "$OUT"
+has "vault without projects/: not set up line" "Second brain not set up" "$OUT"
+hasnt "vault without projects/: no /config line" "is not set" "$OUT"
 
 mkdir -p "$SANDBOX/ch/.second-brain"; : > "$SANDBOX/ch/.second-brain/config.json"
 OUT="$(run_hook '{}' CLAUDE_HOME="$SANDBOX/ch")"

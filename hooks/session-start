@@ -23,7 +23,10 @@ CTX="$RULES
 - Vault: $VAULT
 - Method docs: $ROOT/method"
 
-if [ -z "$VAULT" ] || [ ! -d "$VAULT/projects" ]; then
+if [ -z "$VAULT" ]; then
+  CTX="$CTX
+"'"Vault folder" is not set — set it in /config (edit and save; the default shown is not saved), restart Claude Code, then run /second-brain:setup.'
+elif [ ! -d "$VAULT/projects" ]; then
   CTX="$CTX
 Second brain not set up — run /second-brain:setup."
 fi

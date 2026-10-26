@@ -130,5 +130,19 @@ else
   case "$OUT" in *"$RO/vault"*) pass "unwritable: error names the path" ;; *) fail "unwritable: path not named: $OUT" ;; esac
 fi
 
+# 8. vault setting not configured -> exit 8, nothing written
+NOCFG="$TDIR/nocfg"; mkdir -p "$NOCFG"
+run_setup --vault "" --claude-home "$CH"
+[ "$RC" = 8 ] && pass "empty --vault -> exit 8" || fail "empty --vault rc=$RC out=$OUT"
+case "$OUT" in *"/config"*"edit and save"*) pass "empty --vault: message points to /config" ;; *) fail "empty --vault msg: $OUT" ;; esac
+run_setup --vault '${user_config.vault}' --claude-home "$CH"
+[ "$RC" = 8 ] && pass "literal placeholder --vault -> exit 8" || fail "placeholder rc=$RC out=$OUT"
+case "$OUT" in *"/config"*) pass "placeholder: message points to /config" ;; *) fail "placeholder msg: $OUT" ;; esac
+[ -z "$(ls -A "$NOCFG")" ] && [ ! -e '${user_config.vault}' ] && [ ! -e "$PWD/\${user_config.vault}" ] && pass "exit 8: nothing created" || fail "exit 8 created something"
+run_setup --claude-home "$CH"
+[ "$RC" = 2 ] && pass "missing --vault flag -> still exit 2" || fail "missing --vault rc=$RC"
+run_setup --bogus --vault "$TDIR/x" --claude-home "$CH"
+[ "$RC" = 2 ] && pass "unknown flag -> still exit 2" || fail "unknown flag rc=$RC"
+
 echo "Passed: $PASS_COUNT  Failed: $FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]

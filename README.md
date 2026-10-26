@@ -35,7 +35,9 @@ Inside Claude Code:
 ```
 
 `/second-brain:setup` creates (or adopts) your vault and checks the install.
-The vault location is the plugin's `vault` option (default `~/second-brain`).
+The vault location is the plugin's `vault` option (default `~/second-brain`). Set it in `/config` (edit and save it; the
+default shown there is not saved until you edit it), restart Claude Code, then
+run `/second-brain:setup`.
 Setup is safe to re-run: it reports "already set up" instead of duplicating
 anything.
 

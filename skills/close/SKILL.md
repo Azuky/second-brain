@@ -13,9 +13,10 @@ Run the close per the method. Determine which case applies:
    stays `[~]`. For non-trivial changes with a runtime surface, also
    exercise the flow end-to-end (native `/verify` skill) — green tests
    alone let through exactly the bugs that later show up as MR comments.
-2. **Gate**: if the task produced code destined for a commit/MR, `/second-brain:gate`
-   must have run on the integrated diff with verdict **READY**. NOT-READY
-   → the close stops here; the open findings decide the next step.
+2. **Gate**: if the task produced code destined for a commit/MR, run the
+   `second-brain:gate` skill yourself on the integrated diff (do not ask the
+   user to). Its verdict must be **READY**. NOT-READY → the close stops here;
+   the open findings decide the next step.
 3. Update the vault's CONTEXT.md: task, new decisions, open questions,
    "Current state" with ISO date `YYYY-MM-DD`.
 4. **Metrics**: ask me two things — task `type` (feat / bug / refactor /
