@@ -4,6 +4,8 @@ description: Create or adopt the second-brain vault and check the install
 disable-model-invocation: true
 ---
 
+Configured vault: `${user_config.vault}`. If that value is empty or still reads as a `${…}` placeholder, the setting was never saved: do not run anything below; handle it exactly as exit code **8**.
+
 Set up the vault for the method. Run:
 
 ```
@@ -50,7 +52,7 @@ Act on the exit code:
      - **2** or **7**: show the message and stop (7 names the path that could
        not be written).
   Quote every path.
-- **8**: the "Vault folder" setting is empty (it was never saved). Tell the
+- **8**: the "Vault folder" setting is empty or still a placeholder (it was never saved; this is also the shared guidance for the pre-check above). Tell the
   user in plain words: open `/config`, edit and save "Vault folder" (the
   default shown there is not saved until it is edited), restart Claude Code,
   then run `/second-brain:setup` again. Stop.
