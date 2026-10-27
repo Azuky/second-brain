@@ -1,7 +1,6 @@
 ---
 name: close
-description: Close a task or a session — persist the state in the vault
-disable-model-invocation: true
+description: Use when closing a task or a session, or when the method's close-rule hook asks for it — persist the state in the vault
 ---
 
 Run the close per the method. Determine which case applies:

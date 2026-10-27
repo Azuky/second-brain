@@ -16,7 +16,7 @@ TDIR="$(mktemp -d)" || { echo "FAIL: mktemp -d failed"; exit 1; }
 trap 'rm -rf "$TDIR"' EXIT
 
 SKILLS="start close learn kickoff gate new-project setup"
-NOMODEL="close kickoff new-project setup"
+NOMODEL="kickoff new-project setup"
 
 # 1. directories exist
 for d in skills agents method vault-skeleton hooks; do
