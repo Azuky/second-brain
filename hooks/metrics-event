@@ -1,0 +1,42 @@
+#!/bin/bash
+# hooks/metrics-event — SessionStart / SubagentStop / Stop hook (optional
+# metrics): appends one telemetry event line to the project's
+# metrics/events.jsonl in the vault. Silent, always exit 0 — telemetry never
+# blocks the flow. Repos without CLAUDE.local.md log nothing. Needs jq; without
+# it, exits 0 and writes nothing.
+# Usage: metrics-event session-start | subagent-stop | stop
+# Fails open: no `set -e`; any problem exits 0 with no output.
+
+command -v jq >/dev/null 2>&1 || exit 0
+
+_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+# shellcheck source=common.bash
+. "$_dir/common.bash" 2>/dev/null || exit 0
+
+EVENT="${1:-}"
+INPUT="$(cat 2>/dev/null)"
+
+CWD="$(hook_cwd "$INPUT")"
+
+# Only applies to projects where the method is instantiated
+[ -f "$CWD/CLAUDE.local.md" ] || exit 0
+
+CONTEXT="$(project_context_path "$CWD")"
+[ -n "$CONTEXT" ] || exit 0
+
+PROJDIR="$(dirname "$CONTEXT" 2>/dev/null)"
+{ [ -n "$PROJDIR" ] && [ -d "$PROJDIR" ]; } || exit 0
+
+SESSION_ID="$(json_get_string "$INPUT" session_id)"
+
+mkdir -p "$PROJDIR/metrics" 2>/dev/null || exit 0
+
+jq -nc \
+  --arg event "$EVENT" \
+  --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  --argjson epoch "$(date +%s)" \
+  --arg sid "$SESSION_ID" \
+  '{event: $event, ts: $ts, epoch: $epoch, session_id: $sid}' \
+  >> "$PROJDIR/metrics/events.jsonl" 2>/dev/null
+
+exit 0

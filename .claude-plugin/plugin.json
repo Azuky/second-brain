@@ -1,0 +1,20 @@
+{
+  "name": "second-brain",
+  "version": "5.0.0",
+  "description": "A second-brain working method for Claude Code: vault-backed context, session skills, and guard hooks.",
+  "author": {
+    "name": "Azuky"
+  },
+  "repository": "https://github.com/Azuky/second-brain",
+  "homepage": "https://github.com/Azuky/second-brain",
+  "license": "MIT",
+  "userConfig": {
+    "vault": {
+      "type": "directory",
+      "title": "Vault folder",
+      "description": "Folder for your second brain (created by /second-brain:setup if missing).",
+      "required": true,
+      "default": "~/second-brain"
+    }
+  }
+}
