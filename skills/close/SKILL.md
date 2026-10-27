@@ -5,6 +5,10 @@ description: Use when closing a task or a session, or when the method's close-ru
 
 Run the close per the method. Determine which case applies:
 
+In every shell command below (metrics and Brain backup included), quote every
+path (the vault may contain spaces). If the vault value starts with `~/`,
+write it as `"$HOME/…"`: a quoted `~` does not expand.
+
 ## A. Closing a completed task
 
 1. **Verify before marking `[x]`**: run the appropriate build/test/lint and
@@ -25,14 +29,18 @@ Run the close per the method. Determine which case applies:
    metrics are skipped and go on:
 
    ```
-   bash ${CLAUDE_PLUGIN_ROOT}/method/scripts/collect-metrics.sh \
-     <transcript> ${user_config.vault}/projects/<project>/metrics/events.jsonl \
+   bash "${CLAUDE_PLUGIN_ROOT}/method/scripts/collect-metrics.sh" \
+     "<transcript>" "${user_config.vault}/projects/<project>/metrics/events.jsonl" \
      --task "<short title>" --type <type> [--estimate "<estimate>"] \
-     >> ${user_config.vault}/projects/<project>/metrics/metrics.jsonl
+     >> "${user_config.vault}/projects/<project>/metrics/metrics.jsonl"
    ```
 
-   `<transcript>` is this session's JSONL: the most recently modified file
-   in `~/.claude/projects/<cwd-with-slashes-as-dashes>/*.jsonl`. Schema in
+   `<transcript>` is this session's JSONL: `${CLAUDE_SESSION_ID}.jsonl` inside
+   one of the project folders under the Claude config dir (`$CLAUDE_CONFIG_DIR`
+   if set, else `~/.claude`). Locate it with e.g.
+   `ls "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"${CLAUDE_SESSION_ID}.jsonl"`.
+   If `${CLAUDE_SESSION_ID}` came through literally unexpanded or no file
+   matches, say metrics are skipped and go on. Schema in
    `${CLAUDE_PLUGIN_ROOT}/method/METRICS.md`. If the script fails, report it and continue: the
    close never blocks on telemetry.
 5. Record cross-cutting things in the brain: non-obvious decision →
@@ -66,7 +74,7 @@ Acid test: a new session must resume without asking anything.
 
 The vault (`${user_config.vault}`) is a git repo:
 
-1. `git -C ${user_config.vault} status --porcelain` — if clean, done.
+1. `git -C "${user_config.vault}" status --porcelain` — if clean, done.
 2. If there are changes: show me the summary and **with my OK** run add +
    commit: `chore(brain): YYYY-MM-DD close <project|study>` — a single commit
    with everything from the session.

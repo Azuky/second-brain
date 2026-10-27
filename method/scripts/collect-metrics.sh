@@ -8,9 +8,9 @@
 # Usage: collect-metrics.sh <transcript.jsonl> [events.jsonl] [--task T] [--type T] [--estimate E]
 set -u
 
-# Optional: needs jq; without it prints a notice and exits 0.
+# Optional: needs jq; without it prints a notice on stderr and exits 0.
 if ! command -v jq >/dev/null 2>&1; then
-  echo "jq not installed — metrics are optional; install jq to enable them."
+  echo "jq not installed — metrics are optional; install jq to enable them." >&2
   exit 0
 fi
 

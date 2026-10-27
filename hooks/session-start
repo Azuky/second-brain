@@ -15,7 +15,7 @@ INPUT="$(cat 2>/dev/null)"
 RULES="$(cat "$ROOT/method/rules.md" 2>/dev/null)"
 
 VAULT="$(normalize_path "${CLAUDE_PLUGIN_OPTION_VAULT:-}")"
-CH="${CLAUDE_HOME:-$HOME/.claude}"
+CH="$(normalize_path "${CLAUDE_HOME:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}")"
 
 CTX="$RULES
 
@@ -46,7 +46,7 @@ if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
       _m="$CLAUDE_PLUGIN_DATA/sessions/$_sid.start"
       mkdir -p "$CLAUDE_PLUGIN_DATA/sessions" 2>/dev/null &&
         { [ -e "$_m" ] || : > "$_m" 2>/dev/null; }
-      find "$CLAUDE_PLUGIN_DATA/sessions" -name '*.start' -mtime +7 -delete 2>/dev/null
+      find "$CLAUDE_PLUGIN_DATA/sessions" \( -name '*.start' -o -name '*.reminded' \) ! -name "$_sid.start" ! -name "$_sid.reminded" -mtime +7 -delete 2>/dev/null
       ;;
   esac
 fi

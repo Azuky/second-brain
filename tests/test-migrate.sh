@@ -238,6 +238,30 @@ OUT="$(PATH="$CRBIN:$PATH" bash "$MIGRATE" --claude-home "$CH" --vault "$V" --ap
 [ "$RC" = 0 ] && [ ! -e "$CH/commands/close.md" ] && [ ! -e "$CH/hooks/metrics-event.sh" ] && ! grep -q 'SECOND BRAIN METHOD' "$CH/CLAUDE.md" \
   && ! grep -q "$(printf '\r')" "$CH/settings.json" && pass "CRLF jq: apply removes files and block, settings keep LF" || fail "CRLF jq apply rc=$RC out=$OUT"
 
+# 11. a group mixing a user hook and an sbm hook -> only the sbm entry goes
+make_fx t11
+tmp="$CH/settings.json.tmp"
+jq '.hooks.Stop[0].hooks += [{"type":"command","command":"/usr/local/bin/my-mixed-hook"}]' "$CH/settings.json" > "$tmp" && mv "$tmp" "$CH/settings.json"
+run_mig --claude-home "$CH" --vault "$V" --plan
+printf '%s\n' "$OUT" | grep -Fxq 'SETTINGS: remove 6 hook entries' && pass "mixed group: plan counts entries" || fail "mixed plan: $OUT"
+run_mig --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK"
+if [ "$RC" = 0 ] && jq -e '[.hooks.Stop[].hooks[].command] | index("/usr/local/bin/my-mixed-hook") != null' "$CH/settings.json" >/dev/null 2>&1 \
+  && ! grep -Eq 'check-close|check-brief|metrics-event' "$CH/settings.json"; then
+  pass "mixed group: user hook kept, sbm entry removed"
+else fail "mixed group apply rc=$RC: $(cat "$CH/settings.json")"; fi
+
+# 12. a non-object entry in an event array survives --apply (and does not break the count)
+make_fx t12
+tmp="$CH/settings.json.tmp"
+jq '.hooks.Stop += ["weird", 42]' "$CH/settings.json" > "$tmp" && mv "$tmp" "$CH/settings.json"
+run_mig --claude-home "$CH" --vault "$V" --plan
+printf '%s\n' "$OUT" | grep -Fxq 'SETTINGS: remove 6 hook entries' && pass "non-object group: plan counts sbm entries" || fail "non-object plan: $OUT"
+run_mig --claude-home "$CH" --vault "$V" --apply --backup-dir "$BK"
+if [ "$RC" = 0 ] && jq -e '.hooks.Stop | index("weird") != null and index(42) != null' "$CH/settings.json" >/dev/null 2>&1 \
+  && ! grep -Eq 'check-close|check-brief|metrics-event' "$CH/settings.json"; then
+  pass "non-object group: kept after apply, sbm entries gone"
+else fail "non-object apply rc=$RC: $(cat "$CH/settings.json")"; fi
+
 echo ""
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
 [ "$FAIL_COUNT" -eq 0 ] && exit 0 || exit 1

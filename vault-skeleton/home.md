@@ -1,6 +1,6 @@
 # Home — second brain
 
-Entry point of the vault. Structure and rules: `method/BRAIN.md`.
+Entry point of the vault. Structure and rules: `BRAIN.md` in the method docs (path in the session's Paths block).
 Study capture: `/second-brain:learn`. Each project's state: its
 `projects/<project>/CONTEXT.md`.
 

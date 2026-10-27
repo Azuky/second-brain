@@ -203,10 +203,10 @@ fi
 
 # settings.json: count sbm hook entries
 SETTINGS="$CH/settings.json"
-JQ_KEEP='(([(.hooks? // [])[]?.command] | join(" ")) | test($re) | not)'
+JQ_ISSBM='(.command? // "" | tostring | test($re))'
 if [ -f "$SETTINGS" ]; then
   SETTINGS_N="$(jq_r --arg re "$HOOK_RE" '
-    [ (.hooks // {}) | to_entries[] | .value | arrays | .[] | select('"$JQ_KEEP"' | not) ] | length
+    [ (.hooks // {}) | to_entries[] | .value | arrays | .[] | objects | (.hooks | arrays | .[]) | select('"$JQ_ISSBM"') ] | length
   ' "$SETTINGS" 2>/dev/null)" || SETTINGS_BAD=1
   [ -n "$SETTINGS_N" ] || { SETTINGS_N=0; SETTINGS_BAD=1; }
 fi
@@ -311,9 +311,12 @@ if [ "$SETTINGS_BAD" = 0 ] && [ "$SETTINGS_N" -gt 0 ]; then
         .hooks |= ( to_entries
           | map( . as $e
               | if ($e.value | type) == "array" then
-                  ($e.value | map(select('"$JQ_KEEP"'))) as $k
-                  | if ($k | length) == ($e.value | length) then $e
-                    elif ($k | length) == 0 then empty
+                  ($e.value | map(
+                      if type == "object" and (.hooks | type) == "array"
+                      then (.hooks |= map(select('"$JQ_ISSBM"' | not)))
+                      else . end
+                      | select((type == "object" and (.hooks | type) == "array" | not) or (.hooks | length) > 0))) as $k
+                  | if ($k | length) == 0 then empty
                     else .value = $k end
                 else $e end )
           | from_entries )

@@ -31,13 +31,17 @@ Inside Claude Code:
 ```
 /plugin marketplace add Azuky/second-brain
 /plugin install second-brain@azuky
+```
+
+Then set the plugin's `vault` option (default `~/second-brain`) in `/config`
+(edit and save it; the default shown there is not saved until you edit it),
+restart Claude Code, and run:
+
+```
 /second-brain:setup
 ```
 
 `/second-brain:setup` creates (or adopts) your vault and checks the install.
-The vault location is the plugin's `vault` option (default `~/second-brain`). Set it in `/config` (edit and save it; the
-default shown there is not saved until you edit it), restart Claude Code, then
-run `/second-brain:setup`.
 Setup is safe to re-run: it reports "already set up" instead of duplicating
 anything.
 
@@ -73,7 +77,7 @@ If you sync your vault to a git remote, review it before making it public.
 
 ```bash
 bash tests/run-all.sh          # every tests/test-*.sh and tests/check-*.sh
-claude plugin validate --strict .
+bash tests/check-content.sh   # strict validate; tolerates only ICON_MISSING
 ```
 
 CI runs the suites on macOS, Ubuntu and Windows (Git Bash) and validates the
@@ -81,7 +85,8 @@ manifest with the real Claude Code CLI. The plugin ships without an icon by
 design, so `ICON_MISSING` is the one validation warning tolerated.
 
 `legacy/` holds the frozen Spanish sources of the old installer, kept for a
-possible future Spanish edition. It is not shipped.
+possible future Spanish edition. It is in the repo (the marketplace installs
+the whole repo), but nothing in the plugin loads it.
 
 ## Credits
 
