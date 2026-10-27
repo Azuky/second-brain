@@ -58,7 +58,12 @@ if [ -f "$HOOKS_JSON" ]; then
   [ -z "$BAD" ] && [ "$N" = "7" ] && pass "hooks.json names only allowed scripts (7 entries)" || fail "hooks.json scripts (bad:[$BAD] entries:$N)"
   if command -v jq >/dev/null 2>&1; then
     jq -e . "$HOOKS_JSON" >/dev/null 2>&1 && pass "hooks.json parses as JSON" || fail "hooks.json parses as JSON"
-    check "SessionStart matcher" "startup|clear|compact" "$(jq -r '.hooks.SessionStart[0].matcher' "$HOOKS_JSON" 2>/dev/null)"
+    check "SessionStart rules group matcher (includes resume)" "startup|resume|clear|compact" \
+      "$(jq -r '[.hooks.SessionStart[] | select(any(.hooks[]; (.command | test("run-hook\\.cmd\\\" session-start$")))) | .matcher] | first' "$HOOKS_JSON" 2>/dev/null)"
+    check "SessionStart metrics group has no matcher" "true" \
+      "$(jq -r '[.hooks.SessionStart[] | select(any(.hooks[]; (.command | test("metrics-event session-start$")))) | has("matcher")] | first | not' "$HOOKS_JSON" 2>/dev/null)"
+    check "SessionStart groups do not mix rules and metrics" "2" \
+      "$(jq -r '.hooks.SessionStart | length' "$HOOKS_JSON" 2>/dev/null)"
   else
     echo "SKIP: jq missing, JSON assertions skipped"
   fi

@@ -32,7 +32,7 @@ Read **on demand** only the ones relevant to the current task, not all:
 - test: `<command>`
 - lint: `<command>`
 
-<!-- OPTIONAL — only LARGE repos with Graphify activated (method/GRAPHIFY.md).
+<!-- OPTIONAL — only LARGE repos with Graphify activated (GRAPHIFY.md in the method docs).
      If this repo doesn't use the graph, delete this whole block: the section
      is the signal /second-brain:start uses to refresh it and apply the 3-layer rule.
 

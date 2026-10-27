@@ -29,7 +29,7 @@
   `SKILLS-REGISTRY.md` in the method docs.
 - Code destined for a commit/MR → `/second-brain:gate` on the integrated diff;
   only a READY verdict enables leaving the commit message (detail in the
-  command).
+  gate skill).
 - Model by use (Explorer→Haiku · Implementer→Sonnet · Reasoner→Opus): every
   delegable task goes to the **cheapest model that solves it well** (detail
   in `MODEL-ROUTING.md` and `MULTI-AGENT.md` in the method docs).

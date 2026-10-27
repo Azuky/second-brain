@@ -120,9 +120,10 @@ has "brain-metrics no arg: usage" "Usage: brain-metrics.sh <vault-path>" "$OUT"
 OUT="$(env -i PATH="$NOJQ" HOME="$HOME_D" /bin/bash "$METRICS" "$H" 2>&1)"; RC=$?
 check "brain-metrics no jq: exit 0" "0" "$RC"
 check "brain-metrics no jq: notice" "jq not installed — metrics are optional; install jq to enable them." "$OUT"
-OUT="$(env -i PATH="$NOJQ" HOME="$HOME_D" /bin/bash "$COLLECT" "$SANDBOX/x.jsonl" 2>&1)"; RC=$?
+OUT="$(env -i PATH="$NOJQ" HOME="$HOME_D" /bin/bash "$COLLECT" "$SANDBOX/x.jsonl" 2>"$SANDBOX/cm.err")"; RC=$?
 check "collect-metrics no jq: exit 0" "0" "$RC"
-check "collect-metrics no jq: notice" "jq not installed — metrics are optional; install jq to enable them." "$OUT"
+check "collect-metrics no jq: stdout empty" "" "$OUT"
+check "collect-metrics no jq: notice on stderr" "jq not installed — metrics are optional; install jq to enable them." "$(cat "$SANDBOX/cm.err")"
 if command -v jq >/dev/null 2>&1; then
   OUT="$(/bin/bash "$METRICS" "$H" 2>&1)"; RC=$?
   check "brain-metrics with jq, no data: exit 0" "0" "$RC"

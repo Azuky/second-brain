@@ -9,7 +9,7 @@ Configured vault: `${user_config.vault}`. If that value is empty or still reads 
 Set up the vault for the method. Run:
 
 ```
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/setup" --vault "${user_config.vault}" --plugin-root "${CLAUDE_PLUGIN_ROOT}"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/setup" --vault "${user_config.vault}" --plugin-root "${CLAUDE_PLUGIN_ROOT}" --claude-home "${CLAUDE_HOME:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}"
 ```
 
 Run it exactly as written; do not expand or rewrite `~` (the script expands
@@ -25,7 +25,7 @@ Act on the exit code:
   yes, re-run the same command with `--confirm-foreign`. On no, stop and
   suggest changing "Vault folder" in `/config`.
 - **4**: an old `sbm` install was found. Migrate it, with one confirmation:
-  1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrate-sbm" --claude-home "$HOME/.claude" --vault "${user_config.vault}" --plan`
+  1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/migrate-sbm" --claude-home "${CLAUDE_HOME:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}}" --vault "${user_config.vault}" --plan`
      and show the user its output as is. It lists what would be removed, what
      is kept because the user edited it, the settings and `CLAUDE.md` changes,
      and the vault `method/` rename. Nothing is written yet.
@@ -56,7 +56,10 @@ Act on the exit code:
   user in plain words: open `/config`, edit and save "Vault folder" (the
   default shown there is not saved until it is edited), restart Claude Code,
   then run `/second-brain:setup` again. Stop.
-- **2**: usage error. Show the message and stop.
+- **2**: if the message says `unsupported vault path`, tell the user the "Vault
+  folder" value (`~user/...` form) is not supported: set an absolute path or
+  `~/...` in `/config`, restart Claude Code, then re-run `/second-brain:setup`.
+  Otherwise show the message and stop.
 - **1**: the script could not write the vault folder or a file in it (the
   message names the path). Nothing is reported as done. Tell the user in plain
   words which path failed and suggest checking its permissions or changing

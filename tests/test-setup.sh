@@ -144,5 +144,13 @@ run_setup --claude-home "$CH"
 run_setup --bogus --vault "$TDIR/x" --claude-home "$CH"
 [ "$RC" = 2 ] && pass "unknown flag -> still exit 2" || fail "unknown flag rc=$RC"
 
+# ~user/... vault paths are refused, nothing written
+TILDE="$TDIR/tilde"; mkdir -p "$TILDE"; cd "$TILDE"
+run_setup --vault '~bob/brain' --claude-home "$CH"
+[ "$RC" = 2 ] && pass "~user vault -> exit 2" || fail "~user rc=$RC out=$OUT"
+case "$OUT" in *"unsupported vault path"*) pass "~user: message" ;; *) fail "~user msg: $OUT" ;; esac
+[ -z "$(ls -A "$TILDE")" ] && [ ! -e "$HOME/../~bob" ] && pass "~user: nothing created" || fail "~user created something"
+cd "$SCRIPT_DIR"
+
 echo "Passed: $PASS_COUNT  Failed: $FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]

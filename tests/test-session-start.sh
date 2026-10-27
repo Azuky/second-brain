@@ -110,5 +110,23 @@ else
   fail "marker mtime kept on re-run"
 fi
 
+# CLAUDE_CONFIG_DIR is the fallback for the old-sbm check when CLAUDE_HOME is unset
+mkdir -p "$SANDBOX/cfg/.second-brain"; : > "$SANDBOX/cfg/.second-brain/config.json"
+OUT="$(run_hook '{"session_id":"cfg1"}' CLAUDE_CONFIG_DIR="$SANDBOX/cfg")"
+has "CLAUDE_CONFIG_DIR: old sbm detected" "Old sbm install detected" "$OUT"
+
+# stale *.reminded flags are pruned like *.start
+: > "$SANDBOX/data/sessions/old1.reminded"; : > "$SANDBOX/data/sessions/fresh1.reminded"
+touch -t 200001010000 "$SANDBOX/data/sessions/old1.reminded"
+run_hook '{"session_id":"prune1"}' >/dev/null
+[ ! -e "$SANDBOX/data/sessions/old1.reminded" ] && [ -e "$SANDBOX/data/sessions/fresh1.reminded" ] && pass "old .reminded pruned, fresh kept" || fail "reminded pruning"
+
+# the current session's own old files survive the prune; another sid's old .reminded does not
+: > "$SANDBOX/data/sessions/cur1.start"; : > "$SANDBOX/data/sessions/cur1.reminded"; : > "$SANDBOX/data/sessions/other1.reminded"
+touch -t 200001010000 "$SANDBOX/data/sessions/cur1.start" "$SANDBOX/data/sessions/cur1.reminded" "$SANDBOX/data/sessions/other1.reminded"
+run_hook '{"session_id":"cur1"}' >/dev/null
+[ -e "$SANDBOX/data/sessions/cur1.start" ] && [ -e "$SANDBOX/data/sessions/cur1.reminded" ] && pass "current sid's old .start/.reminded survive prune" || fail "current sid files pruned"
+[ ! -e "$SANDBOX/data/sessions/other1.reminded" ] && pass "other sid's old .reminded still pruned" || fail "other old .reminded kept"
+
 echo "Passed: $PASS_COUNT  Failed: $FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]

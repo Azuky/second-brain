@@ -5,6 +5,7 @@
 #       2 usage error
 #       8 --vault empty or still an unexpanded ${...} placeholder (the
 #         "Vault folder" setting was never saved); nothing written
+#       2 also: vault path of the form ~user/... (unsupported); nothing written
 #       3 foreign non-empty folder, nothing written
 #       4 old sbm install found (prints "migrate"), nothing written
 #       1 a directory or file could not be written (error names the path on
@@ -182,6 +183,13 @@ case "$VAULT_SEEN" in
         exit 8
         ;;
     esac
+    ;;
+esac
+case "$VAULT" in
+  "~"|"~/"*) ;;
+  "~"*)
+    echo "unsupported vault path $VAULT: use an absolute path or ~/..." >&2
+    exit 2
     ;;
 esac
 [ -n "$VAULT" ] && [ -n "$PLUGIN_ROOT" ] || usage
