@@ -50,8 +50,9 @@ ceremonies, ~5 seconds of human input per closed task.
 
 Notes on semantics:
 
-- `duration.plan_min`: session start → first plan approval (refinement
-  phase); `exec_min` = the rest. Derived from event timestamps — exact.
+- `duration.plan_min`: session start → first write of a plan file
+  (a `plans` directory, either path separator; falls back to the legacy `ExitPlanMode`, else null);
+  `exec_min` = the rest. Derived from event timestamps — exact.
 - `type` and `estimate` come from the human at `/second-brain:close` — they are what
   makes the data comparable with agile pointing. `estimate: null` is fine;
   a wrong guess recorded honestly beats a blank.

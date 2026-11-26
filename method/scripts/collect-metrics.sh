@@ -137,7 +137,8 @@ def toepoch: sub("\\.[0-9]+Z$"; "Z") | strptime("%Y-%m-%dT%H:%M:%SZ") | mktime;
 | (if $start_epoch != null and $end_epoch != null then (($end_epoch - $start_epoch) / 60) else null end) as $total_min_raw
 | (if $total_min_raw != null then ($total_min_raw | round) else null end) as $total_min
 
-| ([$lines[] | select(.message.content[]? | select(.type=="tool_use" and .name=="ExitPlanMode")) | .timestamp] | map(select(. != null)) | first) as $plan_ts
+| (([$lines[] | select(.message.content[]? | select(.type=="tool_use" and .name=="Write" and ((.input.file_path // "") | test("[/\\\\]plans[/\\\\]")))) | .timestamp] | map(select(. != null)) | first)
+   // ([$lines[] | select(.message.content[]? | select(.type=="tool_use" and .name=="ExitPlanMode")) | .timestamp] | map(select(. != null)) | first)) as $plan_ts
 | (if $plan_ts != null and $start_epoch != null then ((($plan_ts | toepoch) - $start_epoch) / 60) else null end) as $plan_min_raw
 | (if $plan_min_raw != null then ($plan_min_raw | round) else null end) as $plan_min
 

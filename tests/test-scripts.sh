@@ -140,6 +140,11 @@ if command -v jq >/dev/null 2>&1; then
   OUT="$(/bin/bash "$COLLECT" 2>&1)"; RC=$?
   check "collect-metrics no arg: exit 2" "2" "$RC"
   has "collect-metrics no arg: usage" "Usage: collect-metrics.sh" "$OUT"
+  pm() { /bin/bash "$COLLECT" "$SCRIPT_DIR/fixtures/transcripts/$1" | jq -c .duration; }
+  check "collect-metrics plan file: plan_min" '{"total_min":30,"plan_min":12,"exec_min":18}' "$(pm metrics-plan-file.jsonl)"
+  check "collect-metrics windows plan path" '{"total_min":30,"plan_min":12,"exec_min":18}' "$(pm metrics-plan-windows.jsonl)"
+  check "collect-metrics legacy ExitPlanMode" '{"total_min":30,"plan_min":7,"exec_min":23}' "$(pm metrics-plan-legacy.jsonl)"
+  check "collect-metrics design only" '{"total_min":30,"plan_min":null,"exec_min":30}' "$(pm metrics-design-only.jsonl)"
 fi
 
 # --- no leftover placeholders
