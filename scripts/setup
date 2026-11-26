@@ -1,0 +1,245 @@
+#!/bin/bash
+# scripts/setup — scaffold or adopt the user's second-brain vault.
+# Usage: setup --vault <path> --plugin-root <path> [--claude-home <path>] [--confirm-foreign]
+# Exit: 0 done (prints created | adopted | already set up)
+#       2 usage error
+#       8 --vault empty or still an unexpanded ${...} placeholder (the
+#         "Vault folder" setting was never saved); nothing written
+#       2 also: vault path of the form ~user/... (unsupported); nothing written
+#       3 foreign non-empty folder, nothing written
+#       4 old sbm install found (prints "migrate"), nothing written
+#       1 a directory or file could not be written (error names the path on
+#         stderr, no success word printed; may leave a partial scaffold)
+# Bash 3.2 safe; no jq/perl/python/node. Only reads --claude-home, never writes it.
+
+BEGIN_MARK='<!-- BEGIN SECOND BRAIN METHOD -->'
+END_MARK='<!-- END SECOND BRAIN METHOD -->'
+
+usage() {
+  echo "usage: setup --vault <path> --plugin-root <path> [--claude-home <path>] [--confirm-foreign]" >&2
+  exit 2
+}
+
+# normalize_path <path> — expand leading ~, convert C:\ paths via cygpath
+# when present, strip one trailing separator (same logic as hooks/common.bash).
+normalize_path() {
+  local p="$1" c
+  case "$p" in
+    "~") p="$HOME" ;;
+    "~/"*) p="$HOME/${p#\~/}" ;;
+  esac
+  if command -v cygpath >/dev/null 2>&1; then
+    case "$p" in
+      [A-Za-z]:[\\/]*)
+        c=$(cygpath -u "$p" 2>/dev/null) && [ -n "$c" ] && p="$c"
+        ;;
+    esac
+  fi
+  case "$p" in
+    ?*/) p="${p%/}" ;;
+    ?*\\) p="${p%\\}" ;;
+  esac
+  printf '%s' "$p"
+}
+
+# dir_has_visible_entries <dir> — true when <dir> has an entry not starting with ".".
+dir_has_visible_entries() {
+  local dir="$1" entry
+  [ -d "$dir" ] || return 1
+  for entry in "$dir"/*; do
+    [ -e "$entry" ] && return 0
+  done
+  return 1
+}
+
+# vault_looks_foreign <vault> — non-empty (visible entries) with neither projects/ nor method/.
+vault_looks_foreign() {
+  local vault="$1"
+  [ -d "$vault" ] || return 1
+  dir_has_visible_entries "$vault" || return 1
+  if [ -d "$vault/method" ] || [ -d "$vault/projects" ]; then
+    return 1
+  fi
+  return 0
+}
+
+# absolute_path <path> — absolute, lexically normalized (no realpath; target may not exist).
+absolute_path() {
+  local p
+  p="$(normalize_path "$1")"
+  case "$p" in
+    /*) : ;;
+    *) p="$PWD/$p" ;;
+  esac
+  local old_ifs="$IFS" seg out=""
+  local kept=()
+  IFS='/'
+  set -f
+  for seg in $p; do
+    case "$seg" in
+      ""|".") : ;;
+      "..")
+        if [ "${#kept[@]}" -gt 0 ]; then
+          unset "kept[$((${#kept[@]} - 1))]"
+          kept=("${kept[@]+"${kept[@]}"}")
+        fi
+        ;;
+      *) kept+=("$seg") ;;
+    esac
+  done
+  set +f
+  IFS="$old_ifs"
+  for seg in "${kept[@]+"${kept[@]}"}"; do
+    out="$out/$seg"
+  done
+  printf '%s' "${out:-/}"
+}
+
+WROTE=0
+
+# ensure_dir <dir> — mkdir -p only when missing; records a write.
+write_fail() {
+  echo "error: could not write $1" >&2
+  exit 1
+}
+
+ensure_dir() {
+  [ -d "$1" ] && return 0
+  mkdir -p "$1" || write_fail "$1"
+  [ -d "$1" ] || write_fail "$1"
+  WROTE=1
+}
+
+# scaffold_vault <vault> <skeleton-home> — additive: only creates MISSING entries.
+scaffold_vault() {
+  local vault="$1" home_src="$2" d
+  ensure_dir "$vault"
+  for d in projects learning/til learning/concept patterns briefs 00-index; do
+    ensure_dir "$vault/$d"
+  done
+
+  if [ ! -e "$vault/.gitignore" ]; then
+    { cat <<'GI'
+.DS_Store
+.trash/
+.obsidian/workspace*
+.obsidian/cache
+GI
+    } > "$vault/.gitignore" || write_fail "$vault/.gitignore"
+    WROTE=1
+  fi
+
+  if [ ! -e "$vault/00-index/home.md" ]; then
+    {
+      cat <<FM
+---
+type: moc
+date: $(date +%Y-%m-%d)
+tags: [meta]
+---
+FM
+      cat "$home_src"
+    } > "$vault/00-index/home.md" || write_fail "$vault/00-index/home.md"
+    WROTE=1
+  fi
+
+  if [ ! -d "$vault/.git" ] && command -v git >/dev/null 2>&1; then
+    git -C "$vault" init -q >/dev/null 2>&1 && WROTE=1
+  fi
+}
+
+# has_handcopied_rules <file> — heading present outside the managed markers.
+has_handcopied_rules() {
+  local file="$1" line inside=0
+  [ -f "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      *"$BEGIN_MARK"*) inside=1 ;;
+      *"$END_MARK"*) inside=0 ;;
+      "## Always-active rules"*)
+        [ "$inside" -eq 0 ] && return 0
+        ;;
+    esac
+  done < "$file"
+  return 1
+}
+
+# --- argument parsing ------------------------------------------------------
+VAULT="" VAULT_SEEN=0 PLUGIN_ROOT="" CLAUDE_HOME_ARG="" CONFIRM=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --vault) [ $# -ge 2 ] || usage; VAULT="$2"; VAULT_SEEN=1; shift 2 ;;
+    --plugin-root) [ $# -ge 2 ] || usage; PLUGIN_ROOT="$2"; shift 2 ;;
+    --claude-home) [ $# -ge 2 ] || usage; CLAUDE_HOME_ARG="$2"; shift 2 ;;
+    --confirm-foreign) CONFIRM=1; shift ;;
+    *) usage ;;
+  esac
+done
+case "$VAULT_SEEN" in
+  1)
+    case "$VAULT" in
+      ""|'${'*)
+        echo 'vault folder not configured: set "Vault folder" in /config (edit and save it — the default shown there is not saved), then run /second-brain:setup again' >&2
+        exit 8
+        ;;
+    esac
+    ;;
+esac
+case "$VAULT" in
+  "~"|"~/"*) ;;
+  "~"*)
+    echo "unsupported vault path $VAULT: use an absolute path or ~/..." >&2
+    exit 2
+    ;;
+esac
+[ -n "$VAULT" ] && [ -n "$PLUGIN_ROOT" ] || usage
+
+CLAUDE_HOME_DIR="$(normalize_path "${CLAUDE_HOME_ARG:-$HOME/.claude}")"
+PLUGIN_ROOT="$(normalize_path "$PLUGIN_ROOT")"
+VAULT="$(absolute_path "$VAULT")"
+if [ "$VAULT" = "/" ]; then
+  echo "refusing to use the filesystem root as a vault" >&2
+  exit 2
+fi
+
+# --- old sbm install -------------------------------------------------------
+if [ -e "$CLAUDE_HOME_DIR/.second-brain/config.json" ] || [ -e "$CLAUDE_HOME_DIR/.second-brain/config" ]; then
+  echo "migrate"
+  exit 4
+fi
+
+HOME_SRC="$PLUGIN_ROOT/vault-skeleton/home.md"
+if [ ! -f "$HOME_SRC" ]; then
+  echo "missing $HOME_SRC (bad --plugin-root?)" >&2
+  exit 2
+fi
+
+# --- foreign check ---------------------------------------------------------
+MODE=additive
+if [ ! -d "$VAULT" ] || ! dir_has_visible_entries "$VAULT"; then
+  MODE=full
+elif vault_looks_foreign "$VAULT"; then
+  if [ "$CONFIRM" -ne 1 ]; then
+    echo "The folder $VAULT has files but no projects/ or method/ folder, so it does not look like a second-brain vault." >&2
+    echo "Nothing was written. Re-run with --confirm-foreign to add the vault structure alongside the existing files." >&2
+    exit 3
+  fi
+  MODE=full
+fi
+
+# --- hand-copied rules note ------------------------------------------------
+if has_handcopied_rules "$CLAUDE_HOME_DIR/CLAUDE.md"; then
+  echo "note: your CLAUDE.md has its own copy of the method rules; delete it so they don't load twice."
+fi
+
+# --- scaffold --------------------------------------------------------------
+scaffold_vault "$VAULT" "$HOME_SRC"
+
+if [ "$MODE" = full ]; then
+  echo "created"
+elif [ "$WROTE" -eq 1 ]; then
+  echo "adopted"
+else
+  echo "already set up"
+fi
+exit 0

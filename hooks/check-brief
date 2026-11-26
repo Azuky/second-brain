@@ -1,0 +1,101 @@
+#!/bin/bash
+# hooks/check-brief — SubagentStop hook: verifies that a subagent's final
+# report shows verification evidence (a command run + its literal result)
+# before letting the report through. Blocks the report if that is missing.
+# Scoped to subagents dispatched with a TASK BRIEF (first user message
+# contains "# TASK BRIEF"); Explore/Plan/code-review subagents are never
+# blocked by this hook.
+# Usage: check-brief
+# Fails open: no `set -e`; any problem exits 0 with no output. No jq: the
+# JSONL transcript is read line by line with grep and common.bash helpers.
+
+_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+# shellcheck source=common.bash
+. "$_dir/common.bash" 2>/dev/null || exit 0
+
+INPUT="$(cat 2>/dev/null)"
+
+CWD="$(hook_cwd "$INPUT")"
+
+# Only applies to projects where the method is instantiated
+[ -f "$CWD/CLAUDE.local.md" ] || exit 0
+
+# Avoid loop: if this hook already blocked once, don't block again
+[ "$(json_get_bool "$INPUT" stop_hook_active)" = "true" ] && exit 0
+
+# Locate the subagent's own transcript. Only agent_transcript_path is a
+# subagent transcript; transcript_path (the parent's) is not a valid fallback.
+FILE="$(json_get_string "$INPUT" agent_transcript_path)"
+[ -n "$FILE" ] && [ -f "$FILE" ] && [ -r "$FILE" ] || exit 0
+
+# Transcript line shapes (Claude Code writes compact JSONL, one content block
+# per line; the patterns tolerate spaces after colons anyway).
+ROLE_USER='"role"[[:space:]]*:[[:space:]]*"user"'
+ROLE_ASSISTANT='"role"[[:space:]]*:[[:space:]]*"assistant"'
+TYPE_TEXT='"type"[[:space:]]*:[[:space:]]*"text"'
+CONTENT_STR='"content"[[:space:]]*:[[:space:]]*"'
+TOOL_USE='"type"[[:space:]]*:[[:space:]]*"tool_use"'
+TEXT_SPAN='"text"[[:space:]]*:[[:space:]]*"(\\.|[^"\\])*"'
+
+# Scope: only enforce on subagents dispatched with a TASK BRIEF — the first
+# line with role "user" must contain "# TASK BRIEF".
+FIRST_USER="$(grep -a -m1 -E "$ROLE_USER" "$FILE" 2>/dev/null)"
+case "$FIRST_USER" in
+  *"# TASK BRIEF"*) ;;
+  *) exit 0 ;;
+esac
+
+# Last assistant line carrying report text: a text block, or a message whose
+# content is a plain string (and no tool_use). api-request-blob lines replay
+# earlier requests and are never the report. Lines that are only thinking or
+# tool_use blocks are skipped, so the previous text line is judged.
+# One awk pass (regexes via ENVIRON so backslashes stay literal).
+LINE="$(RA="$ROLE_ASSISTANT" TT="$TYPE_TEXT" CS="$CONTENT_STR" TU="$TOOL_USE" \
+  LC_ALL=C awk '
+  BEGIN { ra = ENVIRON["RA"]; tt = ENVIRON["TT"]; cs = ENVIRON["CS"]; tu = ENVIRON["TU"] }
+  $0 !~ ra { next }
+  index($0, "\"api-request-blob\"") { next }
+  $0 ~ tt { l = $0; next }
+  $0 ~ cs && $0 !~ tu { l = $0 }
+  END { if (l != "") print l }
+' "$FILE" 2>/dev/null)"
+[ -n "$LINE" ] || exit 0
+
+# Report text: → -> arrow first, then JSON-unescape. A plain-string
+# message takes its "content" value. Otherwise every "text" value on the line
+# (one per text block) is joined with newlines; a line that is a text block
+# has no other string key named "text" in practice (tool_use input would
+# only appear on tool_use lines, which carry no report).
+_bs='\'; _jr "$LINE" "${_bs}u2192" "→"; LINE="$_JR"
+if printf '%s' "$LINE" | grep -aEq "$CONTENT_STR"; then
+  REPORT="$(json_get_string "$LINE" content)"
+else
+  REPORT=""
+  while IFS= read -r _span; do
+    [ -n "$_span" ] || continue
+    _t="$(json_get_string "{$_span}" text)"
+    if [ -z "$REPORT" ]; then REPORT="$_t"; else REPORT="$REPORT
+$_t"; fi
+  done <<EOT
+$(printf '%s' "$LINE" | grep -aoE "$TEXT_SPAN" 2>/dev/null)
+EOT
+fi
+
+# No usable report text → tolerate.
+[ -n "$REPORT" ] || exit 0
+
+# --- Verification heuristic (single source of truth) ---------------------
+# Passes only when BOTH hold:
+#   a) some line matches: Verification: `<non-empty>` -> <non-empty>
+#      (arrow may be "→" or "->")
+#   b) the report contains a "Criteria evidence" section (case-insensitive)
+VERIF_RE='Verification:[[:space:]]*`[^`]+`[[:space:]]*(→|->)[[:space:]]*[^[:space:]]'
+
+printf '%s' "$REPORT" | grep -aEq "$VERIF_RE" &&
+printf '%s' "$REPORT" | grep -aqi 'criteria evidence' && exit 0
+# ---------------------------------------------------------------------------
+
+R='Method brief rule: the subagent report must include a Verification line for each acceptance-criteria command, in EXACTLY this shape: `Verification: `<command>` -> <literal result>` (arrow may be "->" or "→"), plus a "Criteria evidence" section with one line per acceptance criterion. Run the brief'"'"'s acceptance-criteria commands and re-emit the full report.'
+emit_json "{\"decision\":\"block\",\"reason\":\"$(json_escape "$R")\"}
+"
+exit 0

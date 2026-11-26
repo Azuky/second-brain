@@ -1,0 +1,3 @@
+{"parentUuid":null,"isSidechain":true,"agentId":"a1","type":"user","message":{"role":"user","content":"Explore the repo and list the main folders."},"uuid":"u1"}
+{"parentUuid":"u1","isSidechain":true,"agentId":"a1","message":{"model":"m","id":"msg_1","type":"message","role":"assistant","content":[{"type":"thinking","thinking":"plan it"}]},"type":"assistant","uuid":"a0"}
+{"parentUuid":"a2","isSidechain":true,"agentId":"a1","message":{"model":"m","id":"msg_3","type":"message","role":"assistant","content":[{"type":"text","text":"1. Stack: demo\n2. Files: widget.txt\n3. Verification: `make test` \u2192 3 passed, 0 failed\n4. Findings: none\n"}]},"type":"assistant","uuid":"a3"}

@@ -1,4 +1,4 @@
-name: Method compatibility
+name: Plugin tests
 on:
   push:
   pull_request:
@@ -6,19 +6,37 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # On windows-latest this is Git Bash; on the others plain bash.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      # jq, git and perl already ship on macos-latest runners — no install
-      # step needed for those.
-      - name: render/i18n behavioral tests
-        run: bash tests/test-render.sh
-      - name: i18n key-set parity
-        run: bash tests/check-i18n.sh
-      - name: sbm CLI (install/update/status) behavioral tests
-        run: bash tests/test-sbm.sh
-      # Informational: on a plain checkout with no local changes this
-      # naturally passes; it exists to catch whitespace-dirty diffs
-      # introduced by a PR (e.g. a step above rewriting a tracked file).
+      # git, bash and jq ship on the runners (Git for Windows provides bash on
+      # windows-latest); no install step needed.
+      - name: Test suites
+        run: bash tests/run-all.sh
+      # Catches whitespace-dirty files introduced by a PR.
       - name: Whitespace
         run: git diff --check
+
+  validate:
+    # Strict manifest validation with the real Claude Code CLI. The same
+    # ICON_MISSING-only tolerance as tests/check-content.sh (no plugin icon by
+    # user decision), because validation is run by that script.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: claude plugin validate --strict
+        run: |
+          claude --version
+          bash tests/check-content.sh

@@ -1,0 +1,14 @@
+{
+  "name": "azuky",
+  "owner": {
+    "name": "Azuky"
+  },
+  "description": "Azuky plugins for Claude Code.",
+  "plugins": [
+    {
+      "name": "second-brain",
+      "source": "./",
+      "description": "A second-brain working method for Claude Code: vault-backed context, session skills, and guard hooks."
+    }
+  ]
+}
