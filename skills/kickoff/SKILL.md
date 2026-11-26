@@ -43,8 +43,9 @@ with a date.
    propose the MVP plan: short, verifiable phases, derived from the Scope
    (§4) and the Success criteria (§8). The first phase always ends in
    something that runs (walking skeleton).
-3. On approval: save it in `plans/<YYYY-MM-DD>-mvp.md` (not `docs/superpowers/`)
-   and reference it from CONTEXT.md's todo list (don't duplicate the steps).
+3. Write it to `plans/<YYYY-MM-DD>-mvp.md` (not `docs/superpowers/`) as a draft;
+   I review and approve it, then reference it from CONTEXT.md's todo list
+   (don't duplicate the steps).
 
 ## Fixed rules
 

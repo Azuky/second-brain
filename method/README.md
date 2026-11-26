@@ -180,8 +180,9 @@ settings.local.json enforces them. Keep both in sync.
 
 ### 5.2 Planning with superpowers
 
-The method does not use Claude Code's native plan mode: it keeps the
-plan in the conversation, so nothing is saved to the vault as a spec or plan. Planning uses the
+The method does not use Claude Code's native plan mode, which keeps the
+plan only in the conversation; specs and plans are saved to the vault
+instead. Planning uses the
 `superpowers` plugin (a required dependency) in two tiers:
 
 - **Large** (several sessions or >~5 steps): `superpowers:brainstorming`
@@ -193,11 +194,10 @@ Files go in the vault, overriding superpowers' `docs/superpowers/` default:
 `<vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md`. The human approves
 before any file is touched.
 
-### 5.3 Persisted plans for large tasks
+### 5.3 Persisted plans
 
-The approved plan lives in the conversation and dies with it. For large tasks
-(several sessions, or more than ~5 steps), on approval it's saved (next to its
-design spec in `specs/`) in:
+Every plan, large or brief, is saved (a large task's design spec sits next
+to it in `specs/`) in:
 
 ```
 <vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md

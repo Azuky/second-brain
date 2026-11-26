@@ -23,7 +23,7 @@ or MCP (Dataview/Bases are optional, for the human's queries).
   projects/<project>/
     hub.md                  # what it is, macro state, local repo path
     CONTEXT.md              # live state (see CONTEXT.template.md)
-    plans/                  # approved plans for large tasks
+    plans/                  # approved plans (large or brief)
     specs/                  # approved design specs
     sessions/               # closed history: YYYY-MM-DD.md
     decisions/              # the project's design decisions

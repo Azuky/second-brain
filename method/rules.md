@@ -10,6 +10,8 @@
   superpowers and get human approval before touching files. Large (several
   sessions or >~5 steps): `superpowers:brainstorming` (design spec) then
   `superpowers:writing-plans`. Brief: `superpowers:writing-plans` only.
+  Saved specs/plans start with frontmatter `type: spec`/`type: plan` + `date:`;
+  skip superpowers' "commit the spec" step.
   Save the spec in
   `<vault>/projects/<project>/specs/<YYYY-MM-DD>-<task>-design.md` and the
   plan in `<vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md`, never in
