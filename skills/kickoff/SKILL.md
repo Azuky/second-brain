@@ -36,14 +36,15 @@ with a date.
   stack), with the rationale the brief gives. "TO DECIDE" items do **not**
   produce a note: they stay as open questions.
 
-## Step 4 — First plan (plan mode)
+## Step 4 — First plan (superpowers)
 
 1. If there are §9 doubts that **block** the plan, ask me first.
-2. Enter **plan mode** and propose the MVP plan: short, verifiable phases,
-   derived from the Scope (§4) and the Success criteria (§8). The first phase
-   always ends in something that runs (walking skeleton).
-3. On approval: save it in `plans/<YYYY-MM-DD>-mvp.md` and reference it from
-   CONTEXT.md's todo list (don't duplicate the steps).
+2. Invoke `superpowers:writing-plans` (not the native `EnterPlanMode`) and
+   propose the MVP plan: short, verifiable phases, derived from the Scope
+   (§4) and the Success criteria (§8). The first phase always ends in
+   something that runs (walking skeleton).
+3. On approval: save it in `plans/<YYYY-MM-DD>-mvp.md` (not `docs/superpowers/`)
+   and reference it from CONTEXT.md's todo list (don't duplicate the steps).
 
 ## Fixed rules
 

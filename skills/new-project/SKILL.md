@@ -23,7 +23,7 @@ Vault: `${user_config.vault}`.
 
 ## Scaffolding in the vault — `projects/<name>/`
 
-1. Create `plans/`, `sessions/`, `decisions/`.
+1. Create `plans/`, `specs/`, `sessions/`, `decisions/`.
 2. `hub.md` per the BRAIN.md template: what it is (ask me if it's not clear
    from the repo), absolute repo path, stack in one line, initial macro
    state. Add a `## Repo tree` section with the folder tree (the cache /second-brain:start

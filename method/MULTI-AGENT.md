@@ -76,7 +76,7 @@ integrated and aren't maintained:
 
 | Role | Covered by | Notes |
 |---|---|---|
-| Search, read, summarize, verify state | **Explore** (native subagent, read-only) | Optimized for sweeps: reads excerpts, not whole files |
+| Search, read, summarize, verify state | **Explore** (native subagent, read-only) | Optimized for sweeps: reads excerpts, not whole files. Inherits the parent model unless `model` is passed: quick → `haiku`, medium → `sonnet`, very thorough → `opus`. Anything beyond a single lookup is delegated to it (rules.md) |
 | Review a diff against conventions | **/code-review** (native) | Multi-level; needs no own definition |
 
 The work ones are defined **once at the personal level** in
@@ -175,6 +175,6 @@ apply: no git, no CONTEXT.md, doubts come back.
 - Subagents operate under the same project permissions (the README §5.1
   policy applies equally to all).
 - The plan is still approved by the human BEFORE any dispatch: multi-agent
-  doesn't skip the plan-mode gate.
+  doesn't skip the plan-approval gate.
 - If a subagent returns doubts or blockers, they go up to the parent; if
   they're design decisions, they go up to the human. No one decides downward.

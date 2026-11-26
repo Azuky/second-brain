@@ -101,5 +101,16 @@ else
   echo "SKIP: claude not found; strict validation not run"
 fi
 
+# 11. planning flows through superpowers, not native plan mode
+hits="$(grep -rniE 'plan mode|plan-mode' method/rules.md skills method/PROJECT-BRIEF.template.md method/MULTI-AGENT.md 2>/dev/null)"
+if [ -z "$hits" ]; then pass "no plan mode in rules/skills/templates"; else fail "plan mode mentioned: $hits"; fi
+if grep -qiE 'Enter \**plan mode' method/README.md; then fail "README tells to enter plan mode"; else pass "README does not enter plan mode"; fi
+for k in 'superpowers:brainstorming' 'superpowers:writing-plans' 'specs/<YYYY-MM-DD>' 'docs/superpowers/' 'quick → `haiku`' 'medium → `sonnet`' 'very thorough → `opus`' 'EnterPlanMode' 'standing instruction' '~2 files'; do
+  if grep -qF -- "$k" method/rules.md; then pass "rules.md has $k"; else fail "rules.md missing $k"; fi
+done
+grep -qF 'superpowers:writing-plans' skills/kickoff/SKILL.md && pass "kickoff uses writing-plans" || fail "kickoff missing writing-plans"
+grep -qF 'specs/' skills/new-project/SKILL.md && pass "new-project creates specs/" || fail "new-project missing specs/"
+grep -qF 'specs/' method/BRAIN.md && pass "BRAIN.md lists specs/" || fail "BRAIN.md missing specs/"
+
 echo "---"; echo "passed=$PASS_COUNT failed=$FAIL_COUNT"
 [ "$FAIL_COUNT" -eq 0 ]

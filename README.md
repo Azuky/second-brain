@@ -26,9 +26,11 @@ everything you learn is written down.
 
 ## Install
 
-Inside Claude Code:
+Inside Claude Code (add the official marketplace first if you haven't:
+superpowers is a required dependency and installs from it):
 
 ```
+/plugin marketplace add anthropics/claude-plugins-official
 /plugin marketplace add Azuky/second-brain
 /plugin install second-brain@azuky
 ```

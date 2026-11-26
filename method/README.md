@@ -58,7 +58,7 @@ simple team documentation remains; everything else lives in the vault.
 
 | Piece | Where | Role |
 |---|---|---|
-| `projects/<project>/` | vault | `hub.md` + `CONTEXT.md` + `plans/` + `sessions/` + `decisions/` + `review-checklist.md` + `metrics/` (v4) |
+| `projects/<project>/` | vault | `hub.md` + `CONTEXT.md` + `plans/` + `specs/` + `sessions/` + `decisions/` + `review-checklist.md` + `metrics/` (v4) |
 | `CLAUDE.local.md` | repo root — **global gitignore, not versioned** | Anchor: points to the vault, convention index, safe commands |
 | `.claude/settings.local.json` | repo — Claude Code excludes it from git automatically | Personal permission enforcement (§5.1) |
 
@@ -115,8 +115,9 @@ Then each session is opened with `/second-brain:start`.
 They live in the plugin's `method/rules.md` and apply to all projects:
 
 1. **Plan before code.** Code is never written without showing the plan and
-   receiving approval. For tasks that modify code the **native plan mode**
-   (§5.2) is used: approval is a harness gate, not a promise.
+   receiving approval. Tasks that modify code are planned with the
+   **superpowers skills** (§5.2), never native plan mode; the human approves
+   before any file is touched.
 2. **Git always with approval.** Never `git add` / `commit` / `push` /
    `checkout` without explicit confirmation.
 3. **Destructive operations always with approval.** Never `rm` / `mv` on
@@ -177,17 +178,26 @@ Base example to adapt in each repo:
 The `CLAUDE.local.md` documents the repo's safe commands; the
 settings.local.json enforces them. Keep both in sync.
 
-### 5.2 Native plan mode
+### 5.2 Planning with superpowers
 
-Claude Code ships an integrated plan mode: while active, the model can read
-and analyze but **cannot edit anything** until the human approves the plan
-explicitly. The method's rule: *"for any task that modifies code, enter plan
-mode and present the plan as a todo list before touching files"*.
+The method does not use Claude Code's native plan mode: it keeps the
+plan in the conversation, so nothing is saved to the vault as a spec or plan. Planning uses the
+`superpowers` plugin (a required dependency) in two tiers:
+
+- **Large** (several sessions or >~5 steps): `superpowers:brainstorming`
+  produces a design spec, then `superpowers:writing-plans` the plan.
+- **Brief**: `superpowers:writing-plans` only.
+
+Files go in the vault, overriding superpowers' `docs/superpowers/` default:
+`<vault>/projects/<project>/specs/<YYYY-MM-DD>-<task>-design.md` and
+`<vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md`. The human approves
+before any file is touched.
 
 ### 5.3 Persisted plans for large tasks
 
 The approved plan lives in the conversation and dies with it. For large tasks
-(several sessions, or more than ~5 steps), on approval it's saved in:
+(several sessions, or more than ~5 steps), on approval it's saved (next to its
+design spec in `specs/`) in:
 
 ```
 <vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md
@@ -301,7 +311,7 @@ Open a session in the repo
                   └─ reports state + tree (cached in the hub, doesn't
                      re-explore) + next step + which docs it'll read,
                      and waits for confirmation
-                       └─ plan (plan mode) → human approval
+                       └─ plan (superpowers) → human approval
                             └─ [for each task of the plan]
                                   inline or delegate? (§5.4)
                                     ├─ inline: direct changes by the parent

@@ -20,9 +20,21 @@ the equivalences column is updated when the offering changes:
 
 | Level | Role | Current model (Jul 2026) |
 |---|---|---|
-| **Explorer** | Search, read, summarize, verify state | Haiku 4.5 |
+| **Explorer** | Search, read, summarize, verify state | Haiku 4.5 (quick) · Sonnet 5 (medium) · Opus (very thorough), see below |
 | **Implementer** | Execute well-defined tasks with a brief | Sonnet 5 |
 | **Reasoner** | Plan, decide, review, debug | Opus 4.8 / Fable 5 (the session's main model) |
+
+### Explore by thoroughness
+
+The built-in Explore subagent inherits the parent session's model unless a
+`model` is passed on the call
+(<https://code.claude.com/docs/en/sub-agents>), so always pass it:
+
+| Explore thoroughness | `model` |
+|---|---|
+| quick | `haiku` |
+| medium | `sonnet` |
+| very thorough | `opus` |
 
 ## Routing by task type
 

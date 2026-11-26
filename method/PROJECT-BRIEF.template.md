@@ -4,7 +4,7 @@
   <vault>/projects/<project>/brief.md.
   It's the source of truth of the VISION: not rewritten, amended.
   Quality rule: if you don't know a section, write "TO DECIDE" — that gets
-  resolved with the agent in plan mode, not invented.
+  resolved with the agent in the design conversation, not invented.
 -->
 <!-- method-version: 3.2 -->
 
@@ -48,7 +48,7 @@ status: current
 <!-- Separate the FIXED from the TO DECIDE: -->
 - **Fixed:** <technologies you already chose and why — e.g. TS + React
   because it's your stack>
-- **To decide:** <what you want to resolve with the agent in plan mode —
+- **To decide:** <what you want to resolve with the agent in the design conversation —
   e.g. SQLite or Postgres? deploy where?>
 - **Constraints:** <budget $0, local only, must run on X, etc.>
 
