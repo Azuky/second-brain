@@ -8,6 +8,12 @@
   "repository": "https://github.com/Azuky/second-brain",
   "homepage": "https://github.com/Azuky/second-brain",
   "license": "MIT",
+  "dependencies": [
+    {
+      "name": "superpowers",
+      "marketplace": "claude-plugins-official"
+    }
+  ],
   "userConfig": {
     "vault": {
       "type": "directory",

@@ -103,6 +103,12 @@ OUT="$(/bin/bash "$HEALTH" "$H" 2>&1)"; RC=$?
 check "brain-health: exit 0 on healthy vault" "0" "$RC"
 has "brain-health: header" "🧠 brain-health — $H" "$OUT"
 has "brain-health: healthy line" "Healthy vault (2 notes)" "$OUT"
+# specs/ is structural like plans/: an unlinked spec is not an orphan.
+mkdir -p "$H/projects/p/specs"
+printf -- '---\ntype: spec\ndate: 2026-01-01\n---\nno links in\n' > "$H/projects/p/specs/2026-01-01-x-design.md"
+OUT="$(/bin/bash "$HEALTH" "$H" 2>&1)"; RC=$?
+check "brain-health: unlinked spec not an orphan (exit 0)" "0" "$RC"
+case "$OUT" in *orphan*) fail "brain-health: spec flagged as orphan" ;; *) pass "brain-health: spec skipped like plans" ;; esac
 printf 'no frontmatter\n' > "$H/bad.md"
 OUT="$(/bin/bash "$HEALTH" "$H" 2>&1)"; RC=$?
 check "brain-health: exit 1 with issues" "1" "$RC"
@@ -134,6 +140,11 @@ if command -v jq >/dev/null 2>&1; then
   OUT="$(/bin/bash "$COLLECT" 2>&1)"; RC=$?
   check "collect-metrics no arg: exit 2" "2" "$RC"
   has "collect-metrics no arg: usage" "Usage: collect-metrics.sh" "$OUT"
+  pm() { /bin/bash "$COLLECT" "$SCRIPT_DIR/fixtures/transcripts/$1" | jq -c .duration; }
+  check "collect-metrics plan file: plan_min" '{"total_min":30,"plan_min":12,"exec_min":18}' "$(pm metrics-plan-file.jsonl)"
+  check "collect-metrics windows plan path" '{"total_min":30,"plan_min":12,"exec_min":18}' "$(pm metrics-plan-windows.jsonl)"
+  check "collect-metrics legacy ExitPlanMode" '{"total_min":30,"plan_min":7,"exec_min":23}' "$(pm metrics-plan-legacy.jsonl)"
+  check "collect-metrics design only" '{"total_min":30,"plan_min":null,"exec_min":30}' "$(pm metrics-design-only.jsonl)"
 fi
 
 # --- no leftover placeholders

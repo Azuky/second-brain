@@ -4,6 +4,7 @@
     "name": "Azuky"
   },
   "description": "Azuky plugins for Claude Code.",
+  "allowCrossMarketplaceDependenciesOn": ["claude-plugins-official"],
   "plugins": [
     {
       "name": "second-brain",

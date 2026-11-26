@@ -64,7 +64,7 @@ sort -u "$TMP/targets" -o "$TMP/targets"
 while IFS= read -r f; do
   rel="${f#"$VAULT"/}"
   case "$rel" in
-    */plans/*|*/sessions/*|*/graph/*|briefs/*) continue ;;
+    */plans/*|*/specs/*|*/sessions/*|*/graph/*|briefs/*) continue ;;
   esac
   base=$(basename "$f" .md)
   case "$base" in

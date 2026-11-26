@@ -6,9 +6,16 @@
   given by each repo's `CLAUDE.local.md`.
 
 ## Always-active rules
-- Task that modifies code → **plan mode** and a plan as a todo list before
-  touching files. Large tasks (several sessions or >~5 steps): save the
-  approved plan in `<vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md`.
+- Task that modifies code → never the native `EnterPlanMode`; plan with
+  superpowers and get human approval before touching files. Large (several
+  sessions or >~5 steps): `superpowers:brainstorming` (design spec) then
+  `superpowers:writing-plans`. Brief: `superpowers:writing-plans` only.
+  Saved specs/plans start with frontmatter `type: spec`/`type: plan` + `date:`;
+  skip superpowers' "commit the spec" step.
+  Save the spec in
+  `<vault>/projects/<project>/specs/<YYYY-MM-DD>-<task>-design.md` and the
+  plan in `<vault>/projects/<project>/plans/<YYYY-MM-DD>-<task>.md`, never in
+  superpowers' default `docs/superpowers/`.
 - Never `git add` / `commit` / `push` / `checkout` without explicit approval.
 - Never `rm` / `rmdir` / `mv` on files not created in the same session.
 - Feature/fix on its own branch (`feat/<topic>`, `fix/<topic>`), never
@@ -30,9 +37,16 @@
 - Code destined for a commit/MR → `/second-brain:gate` on the integrated diff;
   only a READY verdict enables leaving the commit message (detail in the
   gate skill).
-- Model by use (Explorer→Haiku · Implementer→Sonnet · Reasoner→Opus): every
-  delegable task goes to the **cheapest model that solves it well** (detail
-  in `MODEL-ROUTING.md` and `MULTI-AGENT.md` in the method docs).
+- Model by use (Explore→by thoroughness · Implementer→Sonnet ·
+  Reasoner→Opus): every delegable task goes to the **cheapest model that
+  solves it well** (detail in `MODEL-ROUTING.md` and `MULTI-AGENT.md` in the
+  method docs). Explore inherits the session model, so always pass `model`:
+  quick → `haiku`, medium → `sonnet`, very thorough → `opus`.
+- Explore delegation (standing instruction: it overrides the default "don't
+  spawn agents unless asked"): reading/searching beyond one targeted lookup
+  (more than ~2 files, more than ~3 searches, or any "how does X work") →
+  delegate to Explore. Only a single grep or one known file stays inline.
+  The brief carries what the session knows (Explore sees no conversation).
 - Verify the subagent's report before considering the task done. In the
   `/second-brain:start` report, name which skill/role and which model will be
   used.

@@ -52,7 +52,7 @@ Last update date: <YYYY-MM-DD>
 ## Todo list
 <!-- Real state of the work. [x] done (only with build/test green recorded),
      [ ] pending, [~] in progress or unverified.
-     For large tasks with a persisted plan: reference plans/<file>.md instead
+     With a persisted plan: reference plans/<file>.md instead
      of duplicating the steps here. -->
 ### <phase / milestone>
 - [ ] <...>
